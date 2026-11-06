@@ -538,7 +538,7 @@ const NET={db:null,ok:false,code:null,seq:0,key:null,open_:false,players:{},arr:
     this.pushTeams(); this.idle();
     this.room.child("players").on("value",v=>{
       const all=v.val()||{}; this.players={};
-      Object.entries(all).forEach(([pid,pl])=>{ if(pl&&pl.name) this.players[pid]=pl; });
+      Object.entries(all).forEach(([pid,pl])=>{ if(pl&&pl.name) this.players[pid]=pl; else this.room.child("players/"+pid).remove(); });
       this.assign(); paintNet(); this.apply();
     });
   },
@@ -671,22 +671,37 @@ function startPlayer(){
   if(!NET.db){ root.innerHTML=`<h1>El Culto de la Calabaza</h1><p class="sub">No se pudo conectar. Revisa tu internet y vuelve a escanear el QR.</p>`; return; }
   const room=NET.db.ref("rooms/"+code);
   let meRef=null;
+  function forget(){
+    if(meRef){ meRef.off(); try{ meRef.onDisconnect().cancel(); }catch(e){} }
+    meRef=null; me=null; pid=null; try{ localStorage.removeItem(KP);}catch(e){}
+  }
   function watchMe(){
     if(!pid) return;
     meRef=room.child("players/"+pid);
-    meRef.on("value",v=>{ me=v.val(); if(!me){ pid=null; try{ localStorage.removeItem(KP);}catch(e){} } paint(); });
-    if(ok){ meRef.child("online").set(true); meRef.child("online").onDisconnect().set(false); }
+    meRef.on("value",v=>{
+      const val=v.val();
+      if(!val||!val.name){ if(val) meRef.remove(); forget(); paint(); return; }
+      me=val;
+      if(ok&&me.online!==true){ meRef.update({online:true}); meRef.onDisconnect().update({online:false}); }
+      paint();
+    });
   }
   room.child("teams").on("value",v=>{ if(v.val()) teams=v.val(); paint(); });
   room.child("state").on("value",v=>{ const n=v.val()||{mode:"idle"}; if(n.seq!==state.seq) my={}; state=n; paint(); });
-  NET.db.ref(".info/connected").on("value",v=>{ ok=!!v.val(); if(ok&&meRef){ meRef.child("online").set(true); meRef.child("online").onDisconnect().set(false); } paint(); });
+  NET.db.ref(".info/connected").on("value",v=>{ ok=!!v.val(); if(ok&&me&&me.name&&meRef){ meRef.update({online:true}); meRef.onDisconnect().update({online:false}); } paint(); });
   watchMe();
+  let joining=false;
   function join(name){
-    name=name.trim().slice(0,30); if(!name) return;
-    pid="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
-    try{ localStorage.setItem(KP,pid);}catch(e){}
-    room.child("players/"+pid).set({name,online:true,at:firebase.database.ServerValue.TIMESTAMP});
-    watchMe();
+    name=name.trim().slice(0,30); if(!name||joining) return;
+    joining=true; paint();
+    room.child("players").once("value").then(v=>{
+      const counts=[0,0,0,0];
+      Object.values(v.val()||{}).forEach(pl=>{ if(pl&&pl.name&&pl.team!==undefined&&pl.team!==null) counts[pl.team]++; });
+      const min=Math.min(...counts), opts=[0,1,2,3].filter(t=>counts[t]===min), team=opts[Math.floor(Math.random()*opts.length)];
+      pid="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+      try{ localStorage.setItem(KP,pid);}catch(e){}
+      return room.child("players/"+pid).set({name,team,online:true,at:firebase.database.ServerValue.TIMESTAMP});
+    }).then(()=>{ joining=false; watchMe(); }).catch(()=>{ joining=false; paint(); });
   }
   function leave(){ if(pid) room.child("players/"+pid).remove(); }
   function answer(c){
@@ -696,6 +711,10 @@ function startPlayer(){
     paint();
   }
   function paint(){
+    if(joining){
+      root.innerHTML=`<div class="wait">${candle}<h1>Uniéndote al ritual…</h1></div>`;
+      return;
+    }
     if(!pid){
       const prevName=$("#nm",root)?$("#nm",root).value:null;
       root.innerHTML=`<h1>El Culto de la Calabaza</h1><p class="sub">Elige tu nombre para el ritual. Puedes usar el que te sugerimos o escribir el tuyo. El equipo te toca al azar.</p>
@@ -711,7 +730,7 @@ function startPlayer(){
       return;
     }
     if(!me||me.team===undefined||me.team===null){
-      root.innerHTML=`<div class="wait">${candle}<h1>Asignando equipo…</h1><p class="sub">${me?esc(me.name)+", e":"E"}l anfitrión te está acomodando.</p></div>`;
+      root.innerHTML=`<div class="wait">${candle}<h1>Uniéndote al ritual…</h1></div>`;
       return;
     }
     const team=me.team;
