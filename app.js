@@ -557,6 +557,8 @@ const NET={db:null,ok:false,code:null,seq:0,key:null,open_:false,players:{},arr:
     ids.forEach((pid,i)=>{ upd[pid+"/team"]=order[i%4]; });
     if(ids.length) this.room.child("players").update(upd);
   },
+  kick(pid){ if(this.room) this.room.child("players/"+pid).remove(); },
+  resetPlayers(){ if(this.room) this.room.child("players").remove(); },
   move(pid){ const pl=this.players[pid]; if(!pl) return; this.room.child("players/"+pid+"/team").set(((pl.team??-1)+1)%4); },
   members(t){ return Object.entries(this.players).filter(([,pl])=>pl.team===t); },
   pushTeams(){ if(this.room) this.room.child("teams").set(S.teams.map((n,i)=>n||("Equipo "+(i+1)))); },
@@ -632,16 +634,29 @@ function RN(body,foot){
      <div class="qrbox">${qr}</div>
      <div><span class="netpill ${NET.ok?"on":"off"}">${NET.ok?"Conectado":"Sin conexión"}</span>
        <h2 class="big" style="margin-top:12px">Escanea, escribe tu nombre y únete</h2>
-       <p class="kicker">Sala <b>${NET.code}</b> · ${total} ${total===1?"jugador":"jugadores"} · los equipos se arman solos y se equilibran</p>
        <div class="netlist">${[0,1,2,3].map(t=>{ const m=NET.members(t);
          return `<div style="box-shadow:inset 10px 0 0 ${TC(t)};padding-left:22px">${esc(tname(t))} · ${m.length}
-           <div class="members">${m.map(([pid,pl])=>`<button data-pid="${esc(pid)}" class="${pl.online===false?"off":""}" title="Clic para cambiarlo de equipo">${esc(pl.name)}</button>`).join("")||`<span class="kicker">esperando…</span>`}</div></div>`; }).join("")}</div>
-       <p class="kicker" style="margin-top:12px">Clic en un nombre para moverlo al siguiente equipo. ${esc(NET.joinUrl())}</p></div></div>`;
-  body.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>NET.move(b.dataset.pid));
-  foot.innerHTML=`<button class="btn ghost" id="nNew">Crear sala nueva</button><button class="btn" id="nMix" ${total?"":"disabled"}>Rebarajar equipos</button><span class="grow"></span><button class="btn go" id="nOk">Listo</button>`;
+           <div class="members">${m.map(([pid,pl])=>`<button data-pid="${esc(pid)}" class="${pl.online===false?"off":""}" aria-label="Quitar a ${esc(pl.name)}" title="Quitar del equipo">${esc(pl.name)} <span aria-hidden="true">✕</span></button>`).join("")||`<span class="kicker">esperando…</span>`}</div></div>`; }).join("")}</div>
+       </div></div>`;
+  body.querySelectorAll("[data-pid]").forEach(b=>b.onclick=()=>{ const pl=NET.players[b.dataset.pid]; if(pl&&confirm(`¿Quitar a ${pl.name} del equipo? Podrá volver a unirse escaneando el QR.`)) NET.kick(b.dataset.pid); });
+  foot.innerHTML=`<button class="btn" id="nMix" ${total?"":"disabled"}>Rebarajar equipos</button><button class="btn" id="nReset" ${total?"":"disabled"}>Reiniciar equipos</button><span class="grow"></span><button class="btn go" id="nOk">Listo</button>`;
   $("#nOk",foot).onclick=()=>{ WINS.net.remove(); delete WINS.net; SFX.close(); };
   $("#nMix",foot).onclick=()=>{ if(confirm("¿Rebarajar a todos en equipos nuevos al azar?")) NET.shuffle(); };
-  $("#nNew",foot).onclick=()=>{ if(!confirm("¿Crear una sala nueva? Todos tendrán que escanear otra vez.")) return; try{ localStorage.removeItem("calabazaRoom"); }catch(e){} if(NET.room){ NET.room.child("players").off(); } NET.host(); render("net"); };
+  $("#nReset",foot).onclick=()=>{ if(confirm("¿Reiniciar equipos? Se borra a todos los jugadores y tendrán que volver a escanear el QR.")) NET.resetPlayers(); };
+}
+
+/* ===================== NOMBRES SUGERIDOS ===================== */
+const SPOOKY={
+  m:["Vampiro","Zombi","Fantasma","Esqueleto","Hombre Lobo","Murciélago","Chupacabras","Nahual","Duende","Espantapájaros","Diablito","Monje Encapuchado","Cuervo","Muñeco Poseído","Alux"],
+  f:["Bruja","Momia","Calaverita","Llorona","Araña","Catrina","Calabaza","Lechuza","Sirena del Pantano","Monja Siniestra","Muñeca Embrujada","Planchada","Gárgola","Banshee","Vela Maldita"],
+  a:[["Dormilón","Dormilona"],["Chismoso","Chismosa"],["Despeinado","Despeinada"],["Bailarín","Bailarina"],["Glotón","Glotona"],["Friolento","Friolenta"],["Coqueto","Coqueta"],
+     ["Distraído","Distraída"],["Miedoso","Miedosa"],["Sonámbulo","Sonámbula"],["Gruñón","Gruñona"],["Enamoradizo","Enamoradiza"],["Tierno","Tierna"],["Pachanguero","Pachanguera"],
+     ["Antojadizo","Antojadiza"],["Dramático","Dramática"],["Desvelado","Desvelada"],["Cosquilludo","Cosquilluda"],["Elegante","Elegante"],["Cantante","Cantante"],["Sin Wifi","Sin Wifi"],["de Medianoche","de Medianoche"]]
+};
+function spookyName(){
+  const g=Math.random()<.5?"m":"f", n=SPOOKY[g][Math.floor(Math.random()*SPOOKY[g].length)], a=SPOOKY.a[Math.floor(Math.random()*SPOOKY.a.length)];
+  const full=n+" "+a[g==="m"?0:1];
+  return full.length<=28?full:spookyName();
 }
 
 /* ===================== MODO JUGADOR ===================== */
@@ -667,7 +682,7 @@ function startPlayer(){
   NET.db.ref(".info/connected").on("value",v=>{ ok=!!v.val(); if(ok&&meRef){ meRef.child("online").set(true); meRef.child("online").onDisconnect().set(false); } paint(); });
   watchMe();
   function join(name){
-    name=name.trim().slice(0,24); if(!name) return;
+    name=name.trim().slice(0,30); if(!name) return;
     pid="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
     try{ localStorage.setItem(KP,pid);}catch(e){}
     room.child("players/"+pid).set({name,online:true,at:firebase.database.ServerValue.TIMESTAMP});
@@ -682,11 +697,16 @@ function startPlayer(){
   }
   function paint(){
     if(!pid){
-      root.innerHTML=`<h1>El Culto de la Calabaza</h1><p class="sub">Escribe tu nombre para unirte al ritual. El equipo te toca al azar.</p>
-        <input class="name" id="nm" type="text" maxlength="24" placeholder="¿Cómo te llamas?" autocomplete="nickname" aria-label="Tu nombre">
+      const prevName=$("#nm",root)?$("#nm",root).value:null;
+      root.innerHTML=`<h1>El Culto de la Calabaza</h1><p class="sub">Elige tu nombre para el ritual. Puedes usar el que te sugerimos o escribir el tuyo. El equipo te toca al azar.</p>
+        <input class="name" id="nm" type="text" maxlength="30" placeholder="¿Cómo te llamas?" autocomplete="nickname" aria-label="Tu nombre">
+        <button class="tbtn" id="dice" style="background:var(--paper);justify-content:center;gap:10px">🎲 Sugerir otro nombre</button>
         <button class="tbtn" id="go" style="background:var(--blood);color:var(--paper);justify-content:center">Unirme</button>
         <p class="note">Sala ${esc(code)} · ${ok?"conectado":"conectando…"}</p>`;
       const nm=$("#nm",root), go=()=>join(nm.value);
+      nm.value=prevName!==null?prevName:spookyName();
+      nm.addEventListener("focus",()=>nm.select());
+      $("#dice",root).onclick=()=>{ nm.value=spookyName(); try{ navigator.vibrate&&navigator.vibrate(15);}catch(e){} };
       $("#go",root).onclick=go; nm.addEventListener("keydown",e=>{ if(e.key==="Enter") go(); });
       return;
     }
