@@ -56,6 +56,9 @@ Versión Halloween de *100 Mexicanos Dijeron*.
 - **Cada ronda:** cara a cara (contesta primero quien toque el timbre; controla quien dé la respuesta más alta), jugar o pasar, turnos por integrante, 3 strikes, robo (el rival da una sola respuesta tras el tercer strike y se lleva la bolsa si atina), cierre revelando las respuestas que nadie dijo.
 - **Juego limpio:** 5 segundos por turno (si no contesta, strike), si un compañero sopla es strike, el conductor decide equivalencias y su decisión es final. Desempate: pregunta extra de cara a cara entre capitanes.
 - **En la app:** la maneja **solo el anfitrión** (sin celulares). Se revela cada respuesta con clic, botón de strike con X gigante y buzzer, "Bolsa = suma × multiplicador", botones para dar los puntos a cada equipo, indicador de control y aviso de quién pasa a la final o es campeón.
+- **Respuestas del cierre:** "Revelar las que faltan" las muestra en color hueso y **no suman** (en `rev`, `true` = adivinada y `"c"` = revelada al cierre). Sólo las adivinadas cuentan para la bolsa.
+- **Desempate:** si el partido acaba empatado, aparece `DESEMPATE` (data.js): "Algo que llevarías para pasar la noche en un cementerio" (Linterna 34 · Cobija 22 · Comida 18 · Celular 14 · Un amigo 12). No suma puntos; el anfitrión marca quién ganó (`g1.tie`).
+- No se puede poner al mismo equipo en los dos lados: elegir al rival intercambia los lados.
 - Se descartó la "Ronda Relámpago" y la sección de materiales y pendientes.
 
 ### 2.2 Dinámica 2 · Trivia del Terror Mexicano (carta II)
@@ -264,7 +267,9 @@ rooms/{CODE}/
 - `NET.host()` abre o crea la sala, publica los nombres de equipo, pone el estado en `idle` y escucha `players`. Los registros **sin nombre** se borran solos (limpieza de "fantasmas").
 - `NET.open(key, payload)` abre una votación con un `seq` nuevo y escucha `answers/{seq}`. Lo llaman R2 (por pregunta), R3 (por noticia no revelada) y R4 (por escena no revelada). Si ya está abierta con la misma llave, no hace nada.
 - `NET.lock()` cierra al acabarse el tiempo de la trivia; `NET.reveal(x)` cierra y publica la respuesta correcta; `NET.idle()` regresa a los celulares a "Esperando al anfitrión" (al cambiar de fase o cerrar una ventana de juego).
-- **Voto por mayoría:** cada jugador vota; `NET.apply()` calcula por equipo la opción más votada (empate: la de mayor tiempo restante promedio, o sea la votada más rápido) y la escribe en el estado del juego como si fuera la respuesta del equipo. En la trivia, el tiempo restante de cada voto se toma en el momento en que llega al anfitrión.
+- **Voto por mayoría:** cada jugador vota; `NET.apply()` calcula por equipo la opción más votada (empate: la votada más rápido) y la escribe en el estado del juego como si fuera la respuesta del equipo. En la trivia "más rápido" = mayor tiempo restante al llegar al anfitrión; en Florida o Tamaulipas y Películas = hora de llegada.
+- **Recarga a media votación:** `NET.open` guarda `{key, seq}` en `localStorage["calabazaVote"]`; al recargar, `NET.host()` retoma esa votación si sigue abierta y sin revelar, en vez de mandar a todos a "Esperando".
+- **Podios:** la trivia desempata por más respuestas correctas; si sigue el empate, o en Florida o Tamaulipas y Películas, el podio anuncia el empate (piedra, papel o tijera entre capitanes).
 - **Privacidad en pantalla grande:** antes de revelar, solo se muestra "Respondió · n/m votos" por equipo, nunca la letra elegida (clases `.answers.hide` y `.ans.got`).
 - **Respaldo manual:** los botones A/B/C (o Florida/Tamaulipas) por equipo siguen en pantalla por si falla un celular.
 - `NET.kick(pid)` borra a un jugador; `NET.resetPlayers()` borra a todos; `NET.shuffle()` rebaraja a todos al azar en equipos equilibrados. `NET.assign()` es un respaldo que asigna equipo a quien no tenga.
@@ -280,7 +285,7 @@ rooms/{CODE}/
 
 - Se activa si el hash coincide con `^#jugar-[A-Z]{4}$`. Agrega `body.player` y oculta todo lo demás.
 - **Pantalla de nombre:** el campo viene lleno con un **nombre sugerido temático** (`spookyName()`: sustantivo masculino o femenino + adjetivo concordado; más de 600 combinaciones de máximo 28 caracteres, como "Lechuza de Medianoche" o "Hombre Lobo Dormilón"). Botón "🎲 Sugerir otro nombre"; al enfocar el campo se selecciona todo para escribir encima. Máximo 30 caracteres.
-- **Unirse:** el **propio celular** lee los jugadores, elige al azar entre los equipos con menos integrantes y crea `players/{pid}` con `{name, team, online, at}` en una sola escritura. Así funciona aunque la página del anfitrión esté cerrada. Gil **no quiere** asignaciones manuales ni una pantalla de "el anfitrión te está acomodando".
+- **Unirse:** el **propio celular** lee los jugadores, elige al azar entre los equipos con menos integrantes y crea `players/{pid}` con `{name, team, online, at}` en una sola escritura. Así funciona aunque la página del anfitrión esté cerrada. 1.2 s después revisa: si por uniones simultáneas su equipo quedó 2 o más arriba del más chico y él es el último en llegar (empate de `at` → mayor `pid`), se cambia solo antes de ver su equipo. Gil **no quiere** asignaciones manuales ni una pantalla de "el anfitrión te está acomodando".
 - El `pid` se guarda en `localStorage["calabazaPid-" + CODE]`, así que recargar no hace perder el lugar.
 - **Presencia:** al conectarse marca `online: true` solo si el registro existe con nombre, y deja un `onDisconnect().update({online:false})`. Si el registro desaparece (lo quitaron o reiniciaron), el celular olvida su `pid` y vuelve a la pantalla de nombre.
 - **Pantallas:** "Esperando al anfitrión…" con vela animada; votación con botones grandes (A/B/C en rojo, ciruela y musgo, o Florida en azul y Tamaulipas en rojo); el voto se puede cambiar mientras siga abierto; al revelar muestra "¡Correcto!", "Fallaste…" o "Sin respuesta". Vibración corta al votar. Enlace "Salir de la sala".
@@ -307,7 +312,7 @@ rooms/{CODE}/
 - **Verificar datos** finos de la trivia antes de la fiesta.
 - **Cargar las 15 imágenes** de películas en la compu y el navegador que se usarán en la fiesta, desde la URL de Netlify.
 - **Actualizar el Claude Doc** con las reglas actuales (equipos por QR, voto por mayoría, 25 preguntas, opciones en películas).
-- **Opcional:** reflejar los nombres de equipo nuevos en los celulares en tiempo real al editarlos (ya se publican al guardar en "Equipos").
+- Los nombres de equipo se publican a los celulares mientras se escriben (también si se cierra "Equipos" con ✕).
 
 ---
 

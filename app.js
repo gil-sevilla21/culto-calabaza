@@ -173,7 +173,7 @@ function RT(body,foot){
   body.innerHTML=`<div class="dlg"><h2 class="big">Nombres de los equipos</h2>
    ${[0,1,2,3].map(i=>`<label><span class="sw" style="background:${TC(i)};width:24px;height:24px"></span><input type="text" data-i="${i}" value="${esc(tname(i))}" maxlength="24" aria-label="Equipo ${i+1}"></label>`).join("")}
    <p class="kicker">Los nombres se usan en las cuatro dinámicas.</p></div>`;
-  body.querySelectorAll("input").forEach(inp=>inp.addEventListener("input",()=>{ S.teams[+inp.dataset.i]=inp.value; save(); }));
+  body.querySelectorAll("input").forEach(inp=>inp.addEventListener("input",()=>{ S.teams[+inp.dataset.i]=inp.value; save(); NET.pushTeams(); }));
   foot.innerHTML=`<span class="grow"></span><button class="btn go" id="tOk">Guardar nombres</button>`;
   $("#tOk",foot).onclick=()=>{ NET.pushTeams(); rerenderAll(); const w=WINS.teams; w.remove(); delete WINS.teams; SFX.close(); };
 }
@@ -188,10 +188,15 @@ function R1(body,foot){
   const g=S.g1, G=g.game, gm=MONSTRUOS[G], r=g.round[G], rd=gm.rounds[r], m=MULT[r];
   const rev=(g.rev[G][r] ||= [false,false,false,false,false]);
   const pair=g.pair[G], aw=g.award[G];
-  const sc=[0,1].map(s=>aw.reduce((t,a,ri)=>{ if(a===s){ const rv=g.rev[G][ri]||[]; t+=MONSTRUOS[G].rounds[ri].a.reduce((x,[,p],k)=>x+(rv[k]?p:0),0)*MULT[ri]; } return t; },0));
-  const pot=rd.a.reduce((x,[,p],k)=>x+(rev[k]?p:0),0);
+  /* rev[k]: true = la adivinaron (suma a la bolsa), "c" = se reveló al cierre (no suma) */
+  const sc=[0,1].map(s=>aw.reduce((t,a,ri)=>{ if(a===s){ const rv=g.rev[G][ri]||[]; t+=MONSTRUOS[G].rounds[ri].a.reduce((x,[,p],k)=>x+(rv[k]===true?p:0),0)*MULT[ri]; } return t; },0));
+  const pot=rd.a.reduce((x,[,p],k)=>x+(rev[k]===true?p:0),0);
   const ctl=g.ctl[G];
   const allDone=aw.every(a=>a!==null);
+  g.tie ||= [null,null,null]; g.tb ||= {};
+  const tb=(g.tb[G] ||= [false,false,false,false,false]);
+  const tied=allDone&&sc[0]===sc[1];
+  const win=!allDone?null:!tied?(sc[0]>sc[1]?0:1):g.tie[G];
   const teamSel=(s)=>`<select data-s="${s}" aria-label="Equipo ${s?"derecha":"izquierda"}">${[0,1,2,3].map(i=>`<option value="${i}" ${pair[s]===i?"selected":""}>${esc(tname(i))}</option>`).join("")}</select>`;
   body.innerHTML=`
    <div class="m-top">
@@ -200,7 +205,7 @@ function R1(body,foot){
      <div class="m-team right ${ctl===1?"ctl":""}" style="box-shadow:inset -10px 0 0 ${TC(pair[1])}">${teamSel(1)}<span class="pts">${sc[1]}</span><span class="kicker">${ctl===1?"Tiene el control":"&nbsp;"}</span></div>
    </div>
    <p class="q" style="max-width:none;font-size:clamp(28px,3vw,46px);margin:12px 0">${esc(rd.q)}</p>
-   <div class="board">${rd.a.map(([t,p],k)=>`<button class="slot ${rev[k]?"":"hid"}" data-k="${k}" aria-label="Respuesta ${k+1}${rev[k]?": "+esc(t):", oculta"}"><span class="n">${k+1}</span><span class="a">${esc(t)}</span><span class="p">${p}</span></button>`).join("")}</div>
+   <div class="board">${rd.a.map(([t,p],k)=>`<button class="slot ${rev[k]?"":"hid"} ${rev[k]==="c"?"cl":""}" data-k="${k}" aria-label="Respuesta ${k+1}${rev[k]?": "+esc(t):", oculta"}"><span class="n">${k+1}</span><span class="a">${esc(t)}</span><span class="p">${p}</span></button>`).join("")}</div>
    <div class="m-ctrl">
      <span class="pot">Bolsa: ${pot} × ${m} = ${pot*m}</span>
      <div class="strikes" aria-label="Strikes">${[0,1,2].map(i=>`<i class="${i<g.strikes[G][r]?"on":""}">X</i>`).join("")}</div>
@@ -209,29 +214,36 @@ function R1(body,foot){
      <button class="btn" data-ctl="1">Control: ${esc(tname(pair[1]))}</button>
    </div>
    ${aw[r]!==null?`<div class="banner">Ronda para ${esc(tname(pair[aw[r]]))}: +${pot*m} puntos</div>`:""}
-   ${allDone?`<div class="banner" style="background:var(--slime)">${sc[0]===sc[1]?"¡Empate! Usen la pregunta de desempate entre capitanes.":"Gana "+esc(tname(pair[sc[0]>sc[1]?0:1]))+(G===2?" y es el CAMPEÓN del torneo":" y pasa a la Gran Final")}</div>`:""}`;
+   ${win!==null&&win!==undefined?`<div class="banner" style="background:var(--tint1)">Gana ${esc(tname(pair[win]))}${tied?" en el desempate":""}${G===2?" y es el CAMPEÓN del torneo":" y pasa a la Gran Final"}</div>`:""}
+   ${tied&&(win===null||win===undefined)?`<div class="banner">¡Empate! Pregunta de desempate: cara a cara entre capitanes, gana quien dé la respuesta más alta.</div>
+     <p class="q" style="max-width:none;font-size:clamp(24px,2.4vw,36px);margin:12px 0">${esc(DESEMPATE.q)}</p>
+     <div class="board">${DESEMPATE.a.map(([t,p],k)=>`<button class="slot ${tb[k]?"":"hid"}" data-tb="${k}" aria-label="Desempate ${k+1}${tb[k]?": "+esc(t):", oculta"}"><span class="n">${k+1}</span><span class="a">${esc(t)}</span><span class="p">${p}</span></button>`).join("")}</div>
+     <div class="m-ctrl"><span class="grow"></span><button class="btn go" data-tw="0">Gana el desempate: ${esc(tname(pair[0]))}</button><button class="btn go" data-tw="1">Gana el desempate: ${esc(tname(pair[1]))}</button></div>`:""}`;
   foot.innerHTML=`
    <div class="rounds">${MONSTRUOS.map((x,i)=>`<button data-g="${i}" class="${i===G?"on":""}">${esc(x.name)}</button>`).join("")}</div>
    <span class="grow"></span>
    <button class="btn" id="mX">Strike ✕</button>
    <button class="btn" id="mXu" ${g.strikes[G][r]?"":"disabled"}>Quitar strike</button>
-   <button class="btn" id="mAll">Revelar todo</button>
+   <button class="btn" id="mAll" title="Muestra las que nadie dijo; no suman puntos">Revelar las que faltan</button>
    ${aw[r]===null?`<button class="btn go" data-aw="0">Puntos a ${esc(tname(pair[0]))}</button><button class="btn go" data-aw="1">Puntos a ${esc(tname(pair[1]))}</button>`:`<button class="btn" id="mUn">Deshacer puntos</button>`}
    <button class="btn" id="mNext" ${r<4?"":"disabled"}>Siguiente ronda</button>
    <button class="btn ghost" id="mReset">Reiniciar</button>`;
   const rr=()=>{save();R1(body,foot);};
-  body.querySelectorAll(".slot").forEach(b=>b.onclick=()=>{ const k=+b.dataset.k; rev[k]=!rev[k]; if(rev[k]) SFX.ding(); rr(); if(rev[k]) body.querySelector(`.slot[data-k="${k}"]`)?.classList.add("rev"); });
-  body.querySelectorAll("select").forEach(s=>s.onchange=()=>{ pair[+s.dataset.s]=+s.value; rr(); });
+  body.querySelectorAll(".slot[data-k]").forEach(b=>b.onclick=()=>{ const k=+b.dataset.k; rev[k]=rev[k]!==true; if(rev[k]) SFX.ding(); rr(); if(rev[k]) body.querySelector(`.slot[data-k="${k}"]`)?.classList.add("rev"); });
+  body.querySelectorAll(".slot[data-tb]").forEach(b=>b.onclick=()=>{ const k=+b.dataset.tb; tb[k]=!tb[k]; if(tb[k]) SFX.ding(); rr(); });
+  body.querySelectorAll("[data-tw]").forEach(b=>b.onclick=()=>{ g.tie[G]=+b.dataset.tw; SFX.win(); rr(); });
+  /* el mismo equipo no puede estar en los dos lados: si eliges al rival, se intercambian */
+  body.querySelectorAll("select").forEach(s=>s.onchange=()=>{ const side=+s.dataset.s, v=+s.value; if(pair[1-side]===v) pair[1-side]=pair[side]; pair[side]=v; rr(); });
   body.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{ g.round[G]=+b.dataset.r; rr(); });
   body.querySelectorAll("[data-ctl]").forEach(b=>b.onclick=()=>{ g.ctl[G]=+b.dataset.ctl; rr(); });
   foot.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ g.game=+b.dataset.g; rr(); });
   $("#mX",foot).onclick=()=>{ g.strikes[G][r]=Math.min(3,g.strikes[G][r]+1); SFX.buzz(); bigX(); rr(); };
   $("#mXu",foot).onclick=()=>{ g.strikes[G][r]=Math.max(0,g.strikes[G][r]-1); rr(); };
-  $("#mAll",foot).onclick=()=>{ rev.fill(true); SFX.ding(); rr(); };
-  foot.querySelectorAll("[data-aw]").forEach(b=>b.onclick=()=>{ aw[r]=+b.dataset.aw; SFX.win(); rr(); });
-  const un=$("#mUn",foot); if(un) un.onclick=()=>{ aw[r]=null; rr(); };
+  $("#mAll",foot).onclick=()=>{ rev.forEach((v,k)=>{ if(!v) rev[k]="c"; }); SFX.ding(); rr(); };
+  foot.querySelectorAll("[data-aw]").forEach(b=>b.onclick=()=>{ aw[r]=+b.dataset.aw; g.tie[G]=null; SFX.win(); rr(); });
+  const un=$("#mUn",foot); if(un) un.onclick=()=>{ aw[r]=null; g.tie[G]=null; rr(); };
   $("#mNext",foot).onclick=()=>{ g.round[G]=Math.min(4,r+1); g.ctl[G]=null; rr(); };
-  $("#mReset",foot).onclick=()=>confirmReset(gm.name,()=>{ g.rev[G]=[];g.strikes[G]=[0,0,0,0,0];g.award[G]=[null,null,null,null,null];g.round[G]=0;g.ctl[G]=null;R1(body,foot); });
+  $("#mReset",foot).onclick=()=>confirmReset(gm.name,()=>{ g.rev[G]=[];g.strikes[G]=[0,0,0,0,0];g.award[G]=[null,null,null,null,null];g.round[G]=0;g.ctl[G]=null;g.tie[G]=null;g.tb[G]=null;R1(body,foot); });
 }
 
 /* ===================== 2 · TRIVIA ===================== */
@@ -244,18 +256,18 @@ function R2(body,foot){
   if(g.phase==="intro"){
     body.innerHTML=`<div class="center" style="padding-top:6vh"><p class="kicker">25 preguntas · 30 segundos cada una · más puntos entre más rápido</p>
       <h2 class="big" style="font-size:clamp(56px,7vw,110px)">Trivia del Terror Mexicano</h2>
-      <p class="q" style="margin:18px auto">Cada equipo elige A, B o C. El conductor marca su respuesta.</p></div>${score4(g.scores)}`;
+      <p class="q" style="margin:18px auto">Voten desde su celular: la respuesta del equipo es la opción más votada.</p></div>${score4(g.scores)}`;
     foot.innerHTML=`<span class="grow"></span><button class="btn ghost" id="tvReset">Reiniciar</button><button class="btn go" id="tvGo">${g.i>0?"Continuar en la pregunta "+(g.i+1):"Empezar"}</button>`;
     $("#tvGo",foot).onclick=()=>startQ(body,foot);
     $("#tvReset",foot).onclick=()=>confirmReset("la Trivia",()=>{ S.g2=fresh().g2; R2(body,foot); });
     return;
   }
-  if(g.phase==="podium") return podium(body,foot,g.scores,"Trivia del Terror Mexicano",()=>{ g.phase="board"; save(); R2(body,foot); });
+  if(g.phase==="podium") return podium(body,foot,g.scores,"Trivia del Terror Mexicano",()=>{ g.phase="board"; save(); R2(body,foot); },{hits:g.hits,tie:"Empate en puntos y en respuestas correctas: desempaten los capitanes."});
   const [q,opts,ok]=TRIVIA[g.i];
   const letters=["A","B","C"];
   const revealing=g.phase==="reveal";
   if(g.phase==="board"){
-    body.innerHTML=leaderboard(g.scores,`Marcador después de la pregunta ${g.i+1}`);
+    body.innerHTML=leaderboard(g.scores,`Marcador después de la pregunta ${g.i+1}`,g.hits);
     foot.innerHTML=`<span class="grow"></span>${g.i<TRIVIA.length-1?`<button class="btn go" id="tvNext">Siguiente pregunta</button>`:`<button class="btn go" id="tvPod">Ver podio</button>`}`;
     const n=$("#tvNext",foot); if(n) n.onclick=()=>{ g.i++; startQ(body,foot); };
     const p=$("#tvPod",foot); if(p) p.onclick=()=>{ g.phase="podium"; SFX.win(); save(); R2(body,foot); };
@@ -300,16 +312,20 @@ function reveal(body,foot){
   [0,1,2,3].forEach(t=>{ const a=g.ans[t]; if(a&&a.c===ok){ const pts=Math.round(500+500*(a.remain/TRIVIA_SECS)); g.last[t]=pts; g.scores[t]+=pts; g.hits[t]++; } else g.last[t]=0; });
   g.phase="reveal"; SFX.win(); save(); NET.reveal(ok); R2(body,foot);
 }
-function leaderboard(scores,title){
-  const order=[0,1,2,3].sort((a,b)=>scores[b]-scores[a]); const max=Math.max(1,...scores);
+/* orden: más puntos; si empatan, más aciertos (sólo la trivia los manda) */
+const rank=(scores,hits)=>[0,1,2,3].sort((a,b)=>scores[b]-scores[a]||(hits?hits[b]-hits[a]:0));
+function leaderboard(scores,title,hits){
+  const order=rank(scores,hits); const max=Math.max(1,...scores);
   return `<h2 class="big center">${esc(title)}</h2><div class="lb" style="margin-top:22px">${order.map((t,i)=>`<div class="r"><span class="pos">${i+1}</span>
     <div class="bar" style="background:${TC(t)};width:${Math.max(22,scores[t]/max*100)}%">${esc(tname(t))}</div><span class="v">${scores[t]}</span></div>`).join("")}</div>`;
 }
-function podium(body,foot,scores,title,back){
-  const order=[0,1,2,3].sort((a,b)=>scores[b]-scores[a]);
+function podium(body,foot,scores,title,back,o={}){
+  const order=rank(scores,o.hits), [a,b]=order;
+  const tiePts=scores[a]===scores[b], tieAll=tiePts&&(!o.hits||o.hits[a]===o.hits[b]);
   const spots=[[order[1],2,"62%"],[order[0],1,"100%"],[order[2],3,"40%"]];
+  const champ=tieAll?`¡Empate en primer lugar! ${esc(o.tie||"")}`:`Campeón: ${esc(tname(a))}${tiePts?" (gana por más respuestas correctas)":""}`;
   body.innerHTML=`<h2 class="big center">${esc(title)}: el podio</h2>
-    <p class="center q" style="margin:10px auto 0;max-width:none">Campeón: ${esc(tname(order[0]))}</p>
+    <p class="center q" style="margin:10px auto 0;max-width:none">${champ}</p>
     <div class="podium">${spots.map(([t,pos,h])=>`<div class="col"><span class="who">${esc(tname(t))}</span><span class="pts">${scores[t]}</span>
       <div class="blk" style="height:${pos===1?260:pos===2?180:120}px;background:${TC(t)}">${pos}</div></div>`).join("")}</div>`;
   foot.innerHTML=`<button class="btn" id="pBack">Ver marcador completo</button><span class="grow"></span>`;
@@ -321,7 +337,7 @@ function R3(body,foot){
   const g=S.g3;
   if(g.i>=NOTICIAS.length){
     NET.idle();
-    if(g.end) return podium(body,foot,g.scores,"Florida o Tamaulipas",()=>{ g.end=false; save(); R3(body,foot); });
+    if(g.end) return podium(body,foot,g.scores,"Florida o Tamaulipas",()=>{ g.end=false; save(); R3(body,foot); },{tie:"Piedra, papel o tijera entre capitanes."});
     body.innerHTML=leaderboard(g.scores,"Resultado final");
     foot.innerHTML=`<button class="btn" id="fBack">Volver a la noticia 10</button><span class="grow"></span><button class="btn ghost" id="fReset">Reiniciar</button><button class="btn go" id="fPod">Ver podio</button>`;
     $("#fBack",foot).onclick=()=>{ g.i=NOTICIAS.length-1; save(); R3(body,foot); };
@@ -342,11 +358,13 @@ function R3(body,foot){
       <span class="res">${shown?(v[t]===ans?"✓ +1":"✗ 0"):(v[t]?"Votó":"Sin voto")+NET.vi(t)}</span></div>`).join("")}</div>
    ${score4(g.scores)}`;
   foot.innerHTML=`<button class="btn" id="fPrev" ${g.i?"":"disabled"}>Anterior</button><span class="grow"></span>
+    <button class="btn ghost" id="fReset">Reiniciar</button>
     ${shown?`<button class="btn go" id="fNext">${g.i<NOTICIAS.length-1?"Siguiente noticia":"Ver resultados"}</button>`:`<button class="btn go" id="fRev">Revelar</button>`}`;
   body.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{ v[+b.dataset.t]=b.dataset.c; SFX.tick(); save(); R3(body,foot); });
   const rv=$("#fRev",foot); if(rv) rv.onclick=()=>{ g.log[g.i]=true; [0,1,2,3].forEach(t=>{ if(v[t]===ans) g.scores[t]++; }); SFX.ding(); save(); NET.reveal(ans); R3(body,foot); };
   const nx=$("#fNext",foot); if(nx) nx.onclick=()=>{ g.i++; save(); R3(body,foot); };
   $("#fPrev",foot).onclick=()=>{ g.i=Math.max(0,g.i-1); save(); R3(body,foot); };
+  $("#fReset",foot).onclick=()=>confirmReset("Florida o Tamaulipas",()=>{ S.g3=fresh().g3; NET.idle(); R3(body,foot); });
 }
 
 /* ===================== 4 · ADIVINA LA PELÍCULA ===================== */
@@ -365,7 +383,7 @@ async function R4(body,foot){
   if(g.i>=PELIS.length){
     const sc=[0,1,2,3].map(t=>Object.values(g.hits).filter(h=>h&&h[t]).length);
     NET.idle();
-    if(g.end) return podium(body,foot,sc,"Adivina la Película",()=>{ g.end=false; save(); R4(body,foot); });
+    if(g.end) return podium(body,foot,sc,"Adivina la Película",()=>{ g.end=false; save(); R4(body,foot); },{tie:"Piedra, papel o tijera entre capitanes."});
     body.innerHTML=leaderboard(sc,"Resultado final");
     foot.innerHTML=`<button class="btn" id="pBackS">Volver a la escena 15</button><span class="grow"></span><button class="btn ghost" id="pReset">Reiniciar marcador</button><button class="btn go" id="pPod">Ver podio</button>`;
     $("#pBackS",foot).onclick=()=>{ g.i=PELIS.length-1; save(); R4(body,foot); };
@@ -381,6 +399,9 @@ async function R4(body,foot){
   if(!shown) NET.open("g4-"+g.i,{kind:"abc",prompt:"Escena "+(g.i+1)+": ¿de qué película es?",opts:titles});
   const img=await IDB.get("p"+g.i);
   if(S.g4.i!==g.i) return;
+  /* conserva la misma <img> al redibujar la misma escena (cada voto redibuja): evita el parpadeo en el proyector */
+  const keepImg=img&&body.dataset.scene===String(g.i)?$("#scene img",body):null;
+  body.dataset.scene=g.i;
   body.innerHTML=`
    <div class="tv-head" style="margin-bottom:12px"><span class="pill on">Escena ${g.i+1} de ${PELIS.length}</span>
      <div class="strip" aria-label="Escenas">${PELIS.map((_,k)=>`<button data-j="${k}" class="${k===g.i?"on":""} ${HAS.has(k)?"has":""}" aria-label="Escena ${k+1}">${k+1}</button>`).join("")}</div></div>
@@ -393,10 +414,12 @@ async function R4(body,foot){
       <div class="row">${letters.map((L,k)=>`<button data-t="${t}" data-k="${k}" class="${A[t]===k?"on":""}" ${shown?"disabled":""}>${L}</button>`).join("")}</div>
       <span class="res">${shown?(h[t]?"✓ +1":"✗ 0"):(A[t]!==undefined?"Respondió":"Sin respuesta")+NET.vi(t)}</span></div>`).join("")}</div>
    ${score4(sc)}`;
+  if(keepImg&&keepImg.getAttribute("src")===img) $("#scene img",body)?.replaceWith(keepImg);
   foot.innerHTML=`<button class="btn" id="pPrev" ${g.i?"":"disabled"}>Anterior</button>
     <label class="btn">Cargar las 15 imágenes<input type="file" accept="image/*" multiple id="many" hidden></label>
     ${img?`<label class="btn">Cambiar imagen<input type="file" accept="image/*" id="one2" hidden></label>`:""}
     <span class="grow"></span>
+    <button class="btn ghost" id="pReset2">Reiniciar</button>
     ${shown?`<button class="btn go" id="pNext">${g.i<PELIS.length-1?"Siguiente escena":"Ver resultados"}</button>`:`<button class="btn go" id="pRev">Revelar película</button>`}`;
   const loadOne=async e=>{ const f=e.target.files[0]; if(!f) return; await IDB.set("p"+g.i,await readFile(f)); HAS.add(g.i); R4(body,foot); };
   [$("#one",body),$("#one2",foot)].forEach(x=>x&&(x.onchange=loadOne));
@@ -411,6 +434,7 @@ async function R4(body,foot){
   const rv=$("#pRev",foot); if(rv) rv.onclick=()=>{ g.log[g.i]=true; [0,1,2,3].forEach(t=>{ h[t]=A[t]===okIdx; }); SFX.win(); save(); NET.reveal(okIdx); R4(body,foot); };
   const nx=$("#pNext",foot); if(nx) nx.onclick=()=>{ g.i++; save(); R4(body,foot); };
   $("#pPrev",foot).onclick=()=>{ g.i=Math.max(0,g.i-1); save(); R4(body,foot); };
+  $("#pReset2",foot).onclick=()=>confirmReset("Adivina la Película",()=>{ S.g4=fresh().g4; NET.idle(); R4(body,foot); });
 }
 function movieOpts(i){
   const g=S.g4; g.opts ||= {};
@@ -443,7 +467,15 @@ const NET={db:null,ok:false,code:null,seq:0,key:null,open_:false,players:{},arr:
     try{ this.code=localStorage.getItem("calabazaRoom"); }catch(e){}
     if(!this.code){ const L="ABCDEFGHJKLMNPQRSTUVWXYZ"; this.code=[0,0,0,0].map(()=>L[Math.floor(Math.random()*L.length)]).join(""); try{ localStorage.setItem("calabazaRoom",this.code);}catch(e){} }
     this.room=this.db.ref("rooms/"+this.code);
-    this.pushTeams(); this.idle();
+    this.pushTeams();
+    /* si se recargó la página a media votación, retoma esa misma votación en vez de mandar a todos a "Esperando" */
+    let saved=null; try{ saved=JSON.parse(localStorage.getItem("calabazaVote")||"null"); }catch(e){}
+    this.room.child("state").once("value").then(v=>{
+      const st=v.val();
+      if(saved&&st&&st.mode==="q"&&st.seq===saved.seq&&(st.reveal===undefined||st.reveal===null)&&!this.key){
+        this.key=saved.key; this.seq=saved.seq; this.open_=true; this.arr={}; this.listen();
+      } else if(!this.key) this.idle();
+    }).catch(()=>{ if(!this.key) this.idle(); });
     this.room.child("players").on("value",v=>{
       const all=v.val()||{}; this.players={};
       Object.entries(all).forEach(([pid,pl])=>{ if(pl&&pl.name) this.players[pid]=pl; else this.room.child("players/"+pid).remove(); });
@@ -474,11 +506,15 @@ const NET={db:null,ok:false,code:null,seq:0,key:null,open_:false,players:{},arr:
     if(!this.room) return;
     if(this.key===key && this.open_) return;
     this.key=key; this.open_=true; this.seq=Date.now(); this.arr={};
+    try{ localStorage.setItem("calabazaVote",JSON.stringify({key,seq:this.seq})); }catch(e){}
+    this.listen();
+    this.set(Object.assign({mode:"q",seq:this.seq,open:true},payload));
+  },
+  listen(){
     if(this.answersRef) this.answersRef.off();
     this.answersRef=this.room.child("answers/"+this.seq);
     const seq=this.seq;
     this.answersRef.on("value",snap=>this.onVotes(seq,snap.val()||{}));
-    this.set(Object.assign({mode:"q",seq,open:true},payload));
   },
   lock(){ if(!this.room||!this.open_) return; this.room.child("state/open").set(false); },
   reveal(answer){ if(!this.room) return; this.open_=false; this.room.child("state").update({open:false,reveal:answer}); },
@@ -491,7 +527,8 @@ const NET={db:null,ok:false,code:null,seq:0,key:null,open_:false,players:{},arr:
       if(!v) return; const prev=this.arr[pid];
       if(prev&&prev.c===v.c) return;
       if(lockedG2) return;
-      this.arr[pid]={c:v.c,remain:game==="g2"?S.g2.remain:0};
+      /* "remain" mayor = votó antes: en la trivia es el tiempo restante; en las otras, la hora de llegada en negativo */
+      this.arr[pid]={c:v.c,remain:game==="g2"?S.g2.remain:-Date.now()};
     });
     this.apply();
   },
@@ -608,6 +645,16 @@ function startPlayer(){
       pid="p"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
       try{ localStorage.setItem(KP,pid);}catch(e){}
       return room.child("players/"+pid).set({name,team,online:true,at:firebase.database.ServerValue.TIMESTAMP});
+    }).then(()=>new Promise(r=>setTimeout(r,1200)))
+    /* si otros se unieron al mismo tiempo y este equipo quedó con 2 o más de diferencia, el último en llegar se cambia solo (todavía no ve su equipo) */
+    .then(()=>room.child("players").once("value")).then(v=>{
+      const all=v.val()||{}, mine=all[pid]; if(!mine) return;
+      const counts=[0,0,0,0]; Object.values(all).forEach(pl=>{ if(pl&&pl.name&&pl.team!==undefined&&pl.team!==null) counts[pl.team]++; });
+      const min=Math.min(...counts); if(counts[mine.team]-min<2) return;
+      const newest=Object.entries(all).filter(([,pl])=>pl&&pl.name&&pl.team===mine.team).sort((x,y)=>(y[1].at||0)-(x[1].at||0)||(y[0]>x[0]?1:-1))[0][0];
+      if(newest!==pid) return;
+      const opts=[0,1,2,3].filter(t=>counts[t]===min);
+      return room.child("players/"+pid+"/team").set(opts[Math.floor(Math.random()*opts.length)]);
     }).then(()=>{ joining=false; watchMe(); }).catch(()=>{ joining=false; paint(); });
   }
   function leave(){ if(pid) room.child("players/"+pid).remove(); }

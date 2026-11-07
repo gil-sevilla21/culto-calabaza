@@ -23,6 +23,8 @@ const MONSTRUOS = [
  ]}
 ];
 const MULT=[1,1,2,3,4];
+/* desempate de 100 Monstruos: cara a cara entre capitanes, gana quien dé la respuesta más alta (no suma puntos) */
+const DESEMPATE={q:"Algo que llevarías para pasar la noche en un cementerio", a:[["Linterna",34],["Cobija",22],["Comida",18],["Celular",14],["Un amigo",12]]};
 
 const TRIVIA = [
  ["¿En qué tipo de lugar se aparece La Planchada?",["Escuela","Hospital","Iglesia"],1],

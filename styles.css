@@ -110,6 +110,9 @@ h2.big{font:400 clamp(34px,3.6vw,56px)/1.05 var(--title);margin:0 0 6px;color:va
 .slot.hid .a{background:repeating-linear-gradient(-45deg,transparent 0 10px,rgba(30,20,22,.06) 10px 20px)}
 .slot.hid .p{background:var(--bone);color:transparent}
 .slot.rev{animation:flip .35s ease-out}
+/* revelada al cierre: se ve, pero no sumó puntos */
+.slot.cl{background:var(--bone);color:var(--ink)}
+.slot.cl .p{background:var(--bone);color:var(--mute)}
 @keyframes flip{from{transform:rotateX(90deg)}to{transform:none}}
 .m-ctrl{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:16px}
 .pot{font:600 16px var(--game);border:2.5px dashed var(--ink);border-radius:var(--hand);padding:6px 14px;background:var(--paper)}
