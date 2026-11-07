@@ -186,7 +186,7 @@ function victory(o){
   const bat=`<svg viewBox="0 0 100 50" aria-hidden="true"><g class="wing"><path d="M50 22c-6-10-16-16-30-14 4 4 4 8 2 12-6-4-14-4-20 0 10 2 16 8 18 16 6-6 14-8 22-6 4 0 6-4 8-8z" fill="${INK}"/><path d="M50 22c6-10 16-16 30-14-4 4-4 8-2 12 6-4 14-4 20 0-10 2-16 8-18 16-6-6-14-8-22-6-4 0-6-4-8-8z" fill="${INK}"/></g><ellipse cx="50" cy="26" rx="7" ry="10" fill="${INK}"/><path d="M45 17l-2-7 5 4M55 17l2-7-5 4" fill="${INK}"/><circle cx="47" cy="24" r="1.6" fill="${RED}"/><circle cx="53" cy="24" r="1.6" fill="${RED}"/></svg>`;
   const bats=Array.from({length:16},(_,i)=>{ const a=i/16*Math.PI*2+Math.random()*.4, R=55+Math.random()*25;
     return `<span class="bat" style="--dx:${Math.round(Math.cos(a)*R)}vw;--dy:${Math.round(Math.sin(a)*R*.8)}vh;--rot:${Math.round(Math.random()*60-30)}deg;--d:${(Math.random()*.5).toFixed(2)}s;--t:${(1.8+Math.random()*1.2).toFixed(2)}s;--s:${(.7+Math.random()*.8).toFixed(2)}">${bat}</span>`; }).join("");
-  d.innerHTML=`${bats}<div class="box" style="border-top:20px solid ${TC(o.team)}"><span class="k">${esc(o.kicker)}</span><h2>${esc(o.title)}</h2><b class="num">${esc(o.big)}</b><span class="sub">${esc(o.sub)}</span><span class="tap">Toca para continuar</span></div>`;
+  d.innerHTML=`${bats}<div class="box" style="border-top:20px solid ${o.color||TC(o.team)}"><span class="k">${esc(o.kicker)}</span><h2>${esc(o.title)}</h2><b class="num">${esc(o.big)}</b><span class="sub">${esc(o.sub)}</span><span class="tap">Toca para continuar</span></div>`;
   document.body.appendChild(d); SFX.win();
   const close=()=>{ d.classList.add("out"); setTimeout(()=>d.remove(),300); };
   d.addEventListener("click",close); setTimeout(()=>{ if(d.isConnected) close(); },7000);
@@ -203,30 +203,44 @@ function bigX(){
      un strike más = robo fallido y la bolsa se queda con quien tenía el control.
    - Ronda cerrada (5 adivinadas, robo resuelto o "Revelar las que faltan"): lo que se abra se ve pero no suma (rev[k] = "c"). */
 let m1warn=false;
+function m1info(G,i){
+  const g=S.g1; g.rc ||= {}; g.st ||= {};
+  const K=G+"-"+i, rv=g.rev[G][i]||[], s=g.strikes[G][i]||0, c=g.rc[K], st=g.st[K];
+  const guessed=rv.filter(x=>x===true).length;
+  const closed=st!==undefined||s>=4||rv.some(x=>x==="c")||guessed===5;
+  const pot=MONSTRUOS[G].rounds[i].a.reduce((x,[,p],k)=>x+(rv[k]===true?p:0),0);
+  const win=c===undefined?null:st!==undefined?1-c:c;
+  const cur=c===undefined?null:(!closed&&s>=3)?1-c:c;
+  return {s,c,st,closed,pot,win,cur};
+}
+/* resultado del partido G: puntos por lado, si ya terminó, empate y lado ganador (con desempate) */
+function m1result(G){
+  const g=S.g1; g.tie ||= [null,null,null];
+  const R=MONSTRUOS[G].rounds.map((_,i)=>m1info(G,i));
+  const sc=[0,1].map(side=>R.reduce((t,x,i)=>t+(x.win===side?x.pot*MULT[i]:0),0));
+  const allDone=R.every(x=>x.closed), tied=allDone&&sc[0]===sc[1];
+  const mw=!allDone?null:!tied?(sc[0]>sc[1]?0:1):(g.tie[G]??null);
+  return {sc,allDone,tied,mw,team:mw===null?null:g.pair[G][mw]};
+}
+/* la Gran Final se abre cuando las dos semifinales tienen ganador, y la juegan esos dos equipos */
+const m1finalReady=()=>m1result(0).team!==null&&m1result(1).team!==null;
 function R1(body,foot){
-  const g=S.g1, G=g.game, gm=MONSTRUOS[G], r=g.round[G], rd=gm.rounds[r], m=MULT[r];
+  const g=S.g1;
+  if(g.game===2&&!m1finalReady()) g.game=0;
+  if(g.game===2) g.pair[2]=[m1result(0).team,m1result(1).team];
+  const G=g.game, gm=MONSTRUOS[G], r=g.round[G], rd=gm.rounds[r], m=MULT[r];
   const rev=(g.rev[G][r] ||= [false,false,false,false,false]);
   const pair=g.pair[G];
   g.rc ||= {}; g.st ||= {}; g.tie ||= [null,null,null]; g.tb ||= {};
   const K=i=>G+"-"+i;
-  const info=i=>{
-    const rv=g.rev[G][i]||[], s=g.strikes[G][i]||0, c=g.rc[K(i)], st=g.st[K(i)];
-    const guessed=rv.filter(x=>x===true).length;
-    const closed=st!==undefined||s>=4||rv.some(x=>x==="c")||guessed===5;
-    const pot=MONSTRUOS[G].rounds[i].a.reduce((x,[,p],k)=>x+(rv[k]===true?p:0),0);
-    const win=c===undefined?null:st!==undefined?1-c:c;
-    const cur=c===undefined?null:(!closed&&s>=3)?1-c:c;
-    return {s,c,st,closed,pot,win,cur};
-  };
+  const info=i=>m1info(G,i);
   const I=info(r);
-  const sc=[0,1].map(side=>gm.rounds.reduce((t,_,i)=>{ const x=info(i); return t+(x.win===side?x.pot*MULT[i]:0); },0));
-  const allDone=gm.rounds.every((_,i)=>info(i).closed);
+  const {sc,tied,mw}=m1result(G);
   const tb=(g.tb[G] ||= [false,false,false,false,false]);
-  const tied=allDone&&sc[0]===sc[1];
-  const mw=!allDone?null:!tied?(sc[0]>sc[1]?0:1):g.tie[G];
+  const ready=m1finalReady();
   const warn=m1warn; m1warn=false;
   const steal=!I.closed&&I.c!==undefined&&I.s>=3;
-  const teamSel=(s)=>`<select data-s="${s}" aria-label="Equipo ${s?"derecha":"izquierda"}">${[0,1,2,3].map(i=>`<option value="${i}" ${pair[s]===i?"selected":""}>${esc(tname(i))}</option>`).join("")}</select>`;
+  const teamSel=(s)=>`<select data-s="${s}" ${G===2?"disabled title=\"En la Gran Final juegan los ganadores de las semifinales\"":""} aria-label="Equipo ${s?"derecha":"izquierda"}">${[0,1,2,3].map(i=>`<option value="${i}" ${pair[s]===i?"selected":""}>${esc(tname(i))}</option>`).join("")}</select>`;
   const note=s=>I.cur===s?(steal?"Intenta robar":"Tiene el control"):(I.c===undefined&&!I.closed?"Toca aquí para darle el control":"&nbsp;");
   const card=s=>`<div class="m-team ${s?"right":""} ${I.cur===s?"ctl":""} ${I.c===undefined||(!I.closed&&!steal)?"clickable":""}" data-side="${s}" style="box-shadow:inset ${s?"-":""}10px 0 0 ${TC(pair[s])}">${teamSel(s)}<span class="pts">${sc[s]}</span><span class="kicker">${note(s)}</span></div>`;
   body.innerHTML=`
@@ -249,7 +263,7 @@ function R1(body,foot){
      <div class="board">${DESEMPATE.a.map(([t,p],k)=>`<button class="slot ${tb[k]?"":"hid"}" data-tb="${k}" aria-label="Desempate ${k+1}${tb[k]?": "+esc(t):", oculta"}"><span class="n">${k+1}</span><span class="a">${esc(t)}</span><span class="p">${p}</span></button>`).join("")}</div>
      <div class="m-ctrl"><span class="grow"></span><button class="btn go" data-tw="0">Gana el desempate: ${esc(tname(pair[0]))}</button><button class="btn go" data-tw="1">Gana el desempate: ${esc(tname(pair[1]))}</button></div>`:""}`;
   foot.innerHTML=`
-   <div class="rounds">${MONSTRUOS.map((x,i)=>`<button data-g="${i}" class="${i===G?"on":""}">${esc(x.name)}</button>`).join("")}</div>
+   <div class="rounds">${MONSTRUOS.map((x,i)=>`<button data-g="${i}" class="${i===G?"on":""}" ${i===2&&!ready?"disabled title=\"Se abre cuando las dos semifinales tengan ganador\"":""}>${i===2&&!ready?"🔒 ":""}${esc(x.name)}</button>`).join("")}</div>
    <span class="grow"></span>
    <button class="btn" id="mX" ${I.closed?"disabled":""}>Strike ✕</button>
    <button class="btn" id="mXu" ${I.s?"":"disabled"}>Quitar strike</button>
@@ -321,7 +335,7 @@ function R2(body,foot){
     body.innerHTML=leaderboard(g.scores,`Marcador después de la pregunta ${g.i+1}`,g.hits);
     foot.innerHTML=`<span class="grow"></span>${g.i<TRIVIA.length-1?`<button class="btn go" id="tvNext">Siguiente pregunta</button>`:`<button class="btn go" id="tvPod">Ver podio</button>`}`;
     const n=$("#tvNext",foot); if(n) n.onclick=()=>{ g.i++; startQ(body,foot); };
-    const p=$("#tvPod",foot); if(p) p.onclick=()=>{ g.phase="podium"; SFX.win(); save(); R2(body,foot); };
+    const p=$("#tvPod",foot); if(p) p.onclick=()=>{ g.phase="podium"; podCel=true; save(); R2(body,foot); };
     return;
   }
   body.innerHTML=`
@@ -370,6 +384,7 @@ function leaderboard(scores,title,hits){
   return `<h2 class="big center">${esc(title)}</h2><div class="lb" style="margin-top:22px">${order.map((t,i)=>`<div class="r"><span class="pos">${i+1}</span>
     <div class="bar" style="background:${TC(t)};width:${Math.max(22,scores[t]/max*100)}%">${esc(tname(t))}</div><span class="v">${scores[t]}</span></div>`).join("")}</div>`;
 }
+let podCel=false;
 function podium(body,foot,scores,title,back,o={}){
   const order=rank(scores,o.hits), [a,b]=order;
   const tiePts=scores[a]===scores[b], tieAll=tiePts&&(!o.hits||o.hits[a]===o.hits[b]);
@@ -381,6 +396,9 @@ function podium(body,foot,scores,title,back,o={}){
       <div class="blk" style="height:${pos===1?260:pos===2?180:120}px;background:${TC(t)}">${pos}</div></div>`).join("")}</div>`;
   foot.innerHTML=`<button class="btn" id="pBack">Ver marcador completo</button><span class="grow"></span>`;
   $("#pBack",foot).onclick=back;
+  if(podCel){ podCel=false;
+    victory(tieAll?{color:"var(--gold)",kicker:title,title:"¡Empate en primer lugar!",big:`${scores[a]} puntos`,sub:o.tie||""}
+      :{team:a,kicker:title,title:`¡Victoria para ${tname(a)}!`,big:`${scores[a]} puntos`,sub:tiePts?"Ganó por más respuestas correctas":"¡Campeón de la dinámica!"}); }
 }
 
 /* ===================== 3 · FLORIDA O TAMAULIPAS ===================== */
@@ -392,7 +410,7 @@ function R3(body,foot){
     body.innerHTML=leaderboard(g.scores,"Resultado final");
     foot.innerHTML=`<button class="btn" id="fBack">Volver a la noticia 10</button><span class="grow"></span><button class="btn ghost" id="fReset">Reiniciar</button><button class="btn go" id="fPod">Ver podio</button>`;
     $("#fBack",foot).onclick=()=>{ g.i=NOTICIAS.length-1; save(); R3(body,foot); };
-    $("#fPod",foot).onclick=()=>{ g.end=true; SFX.win(); save(); R3(body,foot); };
+    $("#fPod",foot).onclick=()=>{ g.end=true; podCel=true; save(); R3(body,foot); };
     $("#fReset",foot).onclick=()=>confirmReset("Florida o Tamaulipas",()=>{ S.g3=fresh().g3; R3(body,foot); });
     return;
   }
@@ -438,7 +456,7 @@ async function R4(body,foot){
     body.innerHTML=leaderboard(sc,"Resultado final");
     foot.innerHTML=`<button class="btn" id="pBackS">Volver a la escena 15</button><span class="grow"></span><button class="btn ghost" id="pReset">Reiniciar marcador</button><button class="btn go" id="pPod">Ver podio</button>`;
     $("#pBackS",foot).onclick=()=>{ g.i=PELIS.length-1; save(); R4(body,foot); };
-    $("#pPod",foot).onclick=()=>{ g.end=true; SFX.win(); save(); R4(body,foot); };
+    $("#pPod",foot).onclick=()=>{ g.end=true; podCel=true; save(); R4(body,foot); };
     $("#pReset",foot).onclick=()=>confirmReset("Adivina la Película",()=>{ S.g4=fresh().g4; R4(body,foot); });
     return;
   }
