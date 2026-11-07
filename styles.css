@@ -264,3 +264,7 @@ body.player > *:not(#player){display:none!important}
 @media (prefers-reduced-motion:reduce){.vic .bat{display:none}.vic .box{animation:none}}
 .rounds button[disabled]{opacity:.45}
 .m-team select:disabled{opacity:1;background:var(--bone)}
+/* 100 Monstruos: pregunta oculta antes del cara a cara */
+.qhide{display:flex;align-items:baseline;gap:18px;width:100%;margin:12px 0;padding:2px 22px;font:400 clamp(32px,3.4vw,52px)/1.1 var(--title);color:var(--blood2);background:repeating-linear-gradient(-45deg,transparent 0 12px,rgba(30,20,22,.05) 12px 24px);border:3px dashed var(--ink);border-radius:var(--hand2);text-align:left}
+.qhide span{font:500 16px var(--game);color:var(--mute)}
+.qhide:hover{background-color:var(--bone)}

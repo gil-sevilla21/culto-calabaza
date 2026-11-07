@@ -202,7 +202,7 @@ function bigX(){
    - Al 3er strike el control pasa al rival para robar: si abre una respuesta (g.st["G-r"] = esa respuesta) se lleva toda la bolsa;
      un strike más = robo fallido y la bolsa se queda con quien tenía el control.
    - Ronda cerrada (5 adivinadas, robo resuelto o "Revelar las que faltan"): lo que se abra se ve pero no suma (rev[k] = "c"). */
-let m1warn=false;
+let m1warn=false, m1type=false;
 function m1info(G,i){
   const g=S.g1; g.rc ||= {}; g.st ||= {};
   const K=G+"-"+i, rv=g.rev[G][i]||[], s=g.strikes[G][i]||0, c=g.rc[K], st=g.st[K];
@@ -249,7 +249,8 @@ function R1(body,foot){
      <div class="m-mid"><span class="kicker">${esc(gm.name)}</span><div class="rounds">${gm.rounds.map((_,i)=>`<button data-r="${i}" class="${i===r?"on":""} ${info(i).closed?"done":""}">R${i+1} x${MULT[i]}</button>`).join("")}</div><span class="mult">x${m}</span></div>
      ${card(1)}
    </div>
-   <p class="q" style="max-width:none;font-size:clamp(28px,3vw,46px);margin:12px 0">${esc(rd.q)}</p>
+   ${(g.qs ||= {})[K(r)]?`<p class="q" id="m1q" style="max-width:none;font-size:clamp(28px,3vw,46px);margin:12px 0">${m1type?"":esc(rd.q)}</p>`
+     :`<button class="qhide" id="m1q" aria-label="Mostrar la pregunta">Pregunta<span>Clic para mostrarla</span></button>`}
    <div class="board">${rd.a.map(([t,p],k)=>`<button class="slot ${rev[k]?"":"hid"} ${rev[k]==="c"?"cl":""}" data-k="${k}" aria-label="Respuesta ${k+1}${rev[k]?": "+esc(t):", oculta"}"><span class="n">${k+1}</span><span class="a">${esc(t)}</span><span class="p">${p}</span></button>`).join("")}</div>
    <div class="m-ctrl">
      <span class="pot">Bolsa: ${I.pot} × ${m} = ${I.pot*m}${I.win!==null?" · "+esc(tname(pair[I.win])):""}</span>
@@ -298,7 +299,13 @@ function R1(body,foot){
   $("#mNext",foot).onclick=()=>{ g.round[G]=Math.min(4,r+1); rr(); };
   $("#mReset",foot).onclick=()=>confirmReset(gm.name,()=>{ g.rev[G]=[];g.strikes[G]=[0,0,0,0,0];g.round[G]=0;g.tie[G]=null;g.tb[G]=null;
     Object.keys(g.rc).concat(Object.keys(g.st)).forEach(k=>{ if(k.startsWith(G+"-")){ delete g.rc[k]; delete g.st[k]; } });
-    Object.keys(g.cel||{}).forEach(k=>{ if(k.startsWith(G+"-")||k==="m"+G) delete g.cel[k]; }); R1(body,foot); });
+    Object.keys(g.cel||{}).forEach(k=>{ if(k.startsWith(G+"-")||k==="m"+G) delete g.cel[k]; });
+    Object.keys(g.qs||{}).forEach(k=>{ if(k.startsWith(G+"-")) delete g.qs[k]; }); R1(body,foot); });
+  /* pregunta oculta al iniciar la ronda: con un clic se escribe letra por letra */
+  const qh=$(".qhide",body); if(qh) qh.onclick=()=>{ g.qs[K(r)]=1; m1type=true; SFX.open(); rr(); };
+  if(m1type){ m1type=false; const el=$("#m1q",body), txt=rd.q; let n=0;
+    const step=()=>{ if(!el.isConnected) return; n++; el.textContent=txt.slice(0,n); if(n<txt.length) setTimeout(step,45); };
+    step(); }
   /* celebración: una vez por ronda cerrada con puntos y una vez por partido decidido */
   g.cel ||= {};
   const roundCel={team:pair[I.win],kicker:`${gm.name} · Ronda ${r+1} · x${m}`,title:`¡Ronda para ${tname(pair[I.win])}!`,big:`+${I.pot*m}`,sub:I.st!==undefined?"¡Se robaron la bolsa!":I.s>=4?"¡Falló el robo! La bolsa se queda en casa":"puntos"};
