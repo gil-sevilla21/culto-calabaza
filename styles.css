@@ -244,3 +244,21 @@ body.player > *:not(#player){display:none!important}
 }
 /* 100 Monstruos: la tarjeta del equipo se toca para darle el control */
 .m-team.clickable:hover{outline:3px dashed var(--blood);outline-offset:3px}
+/* ---------- cuadro de victoria (100 Monstruos) ---------- */
+.vic{position:fixed;inset:0;z-index:9600;display:grid;place-items:center;background:rgba(243,230,207,.6);overflow:hidden;animation:vicIn .25s ease-out}
+.vic.out{animation:vicOut .3s ease-in forwards}
+.vic .box{position:relative;z-index:2;background:var(--paper);border:4px solid var(--ink);border-radius:var(--hand);box-shadow:10px 12px 0 var(--ink);padding:26px 56px 22px;text-align:center;min-width:min(640px,90vw);max-width:92vw;display:flex;flex-direction:column;align-items:center;gap:6px;animation:vicPop .55s cubic-bezier(.2,1.5,.4,1)}
+.vic .k{font:600 18px var(--game);color:var(--mute)}
+.vic h2{font:400 clamp(44px,6vw,92px)/1 var(--title);color:var(--blood2);margin:4px 0 0}
+.vic .num{font:700 clamp(64px,9vw,140px)/1 var(--game);color:var(--ink)}
+.vic .sub{font:600 clamp(20px,2vw,30px) var(--game);color:var(--blood)}
+.vic .tap{font:500 14px var(--game);color:var(--mute);margin-top:10px}
+.vic .bat{position:absolute;left:50%;top:50%;width:calc(120px * var(--s));z-index:1;opacity:0;animation:batFly var(--t) cubic-bezier(.25,.6,.4,1) var(--d) forwards}
+.vic .bat svg{display:block;width:100%;height:auto}
+.vic .bat .wing{transform-origin:50% 45%;animation:flap .16s ease-in-out infinite alternate}
+@keyframes vicIn{from{opacity:0}}
+@keyframes vicOut{to{opacity:0}}
+@keyframes vicPop{0%{transform:scale(.3) rotate(-6deg);opacity:0}100%{transform:none;opacity:1}}
+@keyframes batFly{0%{transform:translate(-50%,-50%) scale(.2);opacity:0}12%{opacity:1}85%{opacity:1}100%{transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(var(--rot)) scale(1);opacity:0}}
+@keyframes flap{from{transform:scaleY(1)}to{transform:scaleY(.35)}}
+@media (prefers-reduced-motion:reduce){.vic .bat{display:none}.vic .box{animation:none}}

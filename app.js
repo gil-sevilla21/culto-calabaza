@@ -179,6 +179,18 @@ function RT(body,foot){
 }
 
 /* ===================== 1 · 100 MONSTRUOS ===================== */
+/* cuadro de victoria al centro con murciélagos de celebración; se cierra con clic o solo a los 7 s */
+function victory(o){
+  document.querySelector(".vic")?.remove();
+  const d=document.createElement("div"); d.className="vic"; d.setAttribute("role","alertdialog"); d.setAttribute("aria-label",o.title);
+  const bat=`<svg viewBox="0 0 100 50" aria-hidden="true"><g class="wing"><path d="M50 22c-6-10-16-16-30-14 4 4 4 8 2 12-6-4-14-4-20 0 10 2 16 8 18 16 6-6 14-8 22-6 4 0 6-4 8-8z" fill="${INK}"/><path d="M50 22c6-10 16-16 30-14-4 4-4 8-2 12 6-4 14-4 20 0-10 2-16 8-18 16-6-6-14-8-22-6-4 0-6-4-8-8z" fill="${INK}"/></g><ellipse cx="50" cy="26" rx="7" ry="10" fill="${INK}"/><path d="M45 17l-2-7 5 4M55 17l2-7-5 4" fill="${INK}"/><circle cx="47" cy="24" r="1.6" fill="${RED}"/><circle cx="53" cy="24" r="1.6" fill="${RED}"/></svg>`;
+  const bats=Array.from({length:16},(_,i)=>{ const a=i/16*Math.PI*2+Math.random()*.4, R=55+Math.random()*25;
+    return `<span class="bat" style="--dx:${Math.round(Math.cos(a)*R)}vw;--dy:${Math.round(Math.sin(a)*R*.8)}vh;--rot:${Math.round(Math.random()*60-30)}deg;--d:${(Math.random()*.5).toFixed(2)}s;--t:${(1.8+Math.random()*1.2).toFixed(2)}s;--s:${(.7+Math.random()*.8).toFixed(2)}">${bat}</span>`; }).join("");
+  d.innerHTML=`${bats}<div class="box" style="border-top:20px solid ${TC(o.team)}"><span class="k">${esc(o.kicker)}</span><h2>${esc(o.title)}</h2><b class="num">${esc(o.big)}</b><span class="sub">${esc(o.sub)}</span><span class="tap">Toca para continuar</span></div>`;
+  document.body.appendChild(d); SFX.win();
+  const close=()=>{ d.classList.add("out"); setTimeout(()=>d.remove(),300); };
+  d.addEventListener("click",close); setTimeout(()=>{ if(d.isConnected) close(); },7000);
+}
 function bigX(){
   const d=document.createElement("div");d.className="bigx";
   d.innerHTML=`<svg viewBox="0 0 200 200"><path d="M40 34c40 36 84 92 124 136" stroke="${INK}" stroke-width="38" stroke-linecap="round" fill="none"/><path d="M164 30c-40 44-88 90-126 140" stroke="${INK}" stroke-width="38" stroke-linecap="round" fill="none"/><path d="M40 34c40 36 84 92 124 136" stroke="${RED}" stroke-width="26" stroke-linecap="round" fill="none"/><path d="M164 30c-40 44-88 90-126 140" stroke="${RED}" stroke-width="26" stroke-linecap="round" fill="none"/></svg>`;
@@ -232,8 +244,6 @@ function R1(body,foot){
    ${warn?`<div class="banner" style="background:var(--tint0)">Primero toca la tarjeta del equipo que tiene el control.</div>`:""}
    ${!I.closed&&I.c===undefined?`<div class="banner">Toca la tarjeta del equipo que ganó el cara a cara para darle el control.</div>`:""}
    ${steal?`<div class="banner" style="background:var(--tint0)">¡Tercer strike! El control pasa a ${esc(tname(pair[1-I.c]))}: una sola oportunidad para robar. Si atina, abre esa respuesta y se lleva toda la bolsa. Si falla, toca "Falló el robo" y la bolsa es de ${esc(tname(pair[I.c]))}.</div>`:""}
-   ${I.closed&&I.win!==null&&I.pot>0?`<div class="banner">Ronda para ${esc(tname(pair[I.win]))}${I.st!==undefined?" (¡robo!)":I.s>=4?" (falló el robo)":""}: +${I.pot*m} puntos</div>`:""}
-   ${mw!==null&&mw!==undefined?`<div class="banner" style="background:var(--tint1)">Gana ${esc(tname(pair[mw]))}${tied?" en el desempate":""}${G===2?" y es el CAMPEÓN del torneo":" y pasa a la Gran Final"}</div>`:""}
    ${tied&&(mw===null||mw===undefined)?`<div class="banner">¡Empate! Pregunta de desempate: cara a cara entre capitanes, gana quien dé la respuesta más alta.</div>
      <p class="q" style="max-width:none;font-size:clamp(24px,2.4vw,36px);margin:12px 0">${esc(DESEMPATE.q)}</p>
      <div class="board">${DESEMPATE.a.map(([t,p],k)=>`<button class="slot ${tb[k]?"":"hid"}" data-tb="${k}" aria-label="Desempate ${k+1}${tb[k]?": "+esc(t):", oculta"}"><span class="n">${k+1}</span><span class="a">${esc(t)}</span><span class="p">${p}</span></button>`).join("")}</div>
@@ -246,6 +256,7 @@ function R1(body,foot){
    ${steal?`<button class="btn go" id="mFail">Falló el robo</button>`:""}
    <button class="btn" id="mAll" title="Muestra las que nadie dijo; no suman puntos" ${rev.every(Boolean)?"disabled":""}>Revelar las que faltan</button>
    <button class="btn" id="mNext" ${r<4?"":"disabled"}>Siguiente ronda</button>
+   ${mw!==null&&mw!==undefined?`<button class="btn" id="mWin">🏆 Ver ganador</button>`:""}
    <button class="btn ghost" id="mReset">Reiniciar</button>`;
   const rr=()=>{save();R1(body,foot);};
   body.querySelectorAll(".m-team[data-side]").forEach(el=>el.onclick=e=>{
@@ -272,7 +283,18 @@ function R1(body,foot){
   $("#mAll",foot).onclick=()=>{ rev.forEach((v,k)=>{ if(!v) rev[k]="c"; }); SFX.ding(); rr(); };
   $("#mNext",foot).onclick=()=>{ g.round[G]=Math.min(4,r+1); rr(); };
   $("#mReset",foot).onclick=()=>confirmReset(gm.name,()=>{ g.rev[G]=[];g.strikes[G]=[0,0,0,0,0];g.round[G]=0;g.tie[G]=null;g.tb[G]=null;
-    Object.keys(g.rc).concat(Object.keys(g.st)).forEach(k=>{ if(k.startsWith(G+"-")){ delete g.rc[k]; delete g.st[k]; } }); R1(body,foot); });
+    Object.keys(g.rc).concat(Object.keys(g.st)).forEach(k=>{ if(k.startsWith(G+"-")){ delete g.rc[k]; delete g.st[k]; } });
+    Object.keys(g.cel||{}).forEach(k=>{ if(k.startsWith(G+"-")||k==="m"+G) delete g.cel[k]; }); R1(body,foot); });
+  /* celebración: una vez por ronda cerrada con puntos y una vez por partido decidido */
+  g.cel ||= {};
+  const roundCel={team:pair[I.win],kicker:`${gm.name} · Ronda ${r+1} · x${m}`,title:`¡Ronda para ${tname(pair[I.win])}!`,big:`+${I.pot*m}`,sub:I.st!==undefined?"¡Se robaron la bolsa!":I.s>=4?"¡Falló el robo! La bolsa se queda en casa":"puntos"};
+  const matchCel=()=>({team:pair[mw],kicker:gm.name,title:`¡Victoria para ${tname(pair[mw])}!`,big:`${sc[mw]} puntos`,sub:(tied?"Ganó el juego en el desempate · ":"Ganó el juego · ")+(G===2?"¡Campeón del torneo!":"Pasa a la Gran Final")});
+  const decided=mw!==null&&mw!==undefined;
+  let show=null;
+  if(I.closed&&I.win!==null&&I.pot>0){ if(!g.cel[K(r)]){ g.cel[K(r)]=1; show=roundCel; } } else delete g.cel[K(r)];
+  if(decided){ if(!g.cel["m"+G]){ g.cel["m"+G]=1; show=matchCel(); } } else delete g.cel["m"+G];
+  const wb=$("#mWin",foot); if(wb) wb.onclick=()=>victory(matchCel());
+  if(show){ save(); victory(show); }
 }
 
 /* ===================== 2 · TRIVIA ===================== */
