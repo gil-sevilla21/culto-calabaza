@@ -43,100 +43,8 @@ const SFX={
   close:()=>tone([[600,.05],[300,.07]])
 };
 
-/* ===================== PIXEL ART ===================== */
-const PAL={k:"#1A1320",w:"#FFFFFF",o:"#F26B1D",y:"#C2410C",g:"#5DB33A",p:"#7A4FB8",c:"#F2C230",r:"#D7263D",s:"#D9D2E6"};
-function pixels(svg,rows,size){
-  const h=rows.length,w=rows[0].length,px=size/Math.max(w,h);
-  svg.setAttribute("viewBox",`0 0 ${w} ${h}`);svg.setAttribute("shape-rendering","crispEdges");
-  let out="";
-  rows.forEach((r,y)=>[...r].forEach((ch,x)=>{ if(PAL[ch]) out+=`<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${PAL[ch]}"/>`; }));
-  svg.innerHTML=out;
-}
-const DOC=[
-"..kkkkkkkkk.....",
-"..kwwwwwwwkk....",
-"..kwwwwwwwkwk...",
-"..kwwwwwwwkwwk..",
-"..kwwwwwwwkkkkk.",
-"..kwwwwwwwwwwwk.",
-"..kwwwwwwwwwwwk.",
-"..kwwwwwwwwwwwk.",
-"..kwwwwwwwwwwwk.",
-"..kwwwwwwwwwwwk.",
-"..kwwwwwwwwwwwk.",
-"..kwwwwwwwwwwwk.",
-"..kwwwwwwwwwwwk.",
-"..kwwwwwwwwwwwk.",
-"..kwwwwwwwwwwwk.",
-"..kkkkkkkkkkkkk."];
-const SYM={
- pumpkin:["...gg...",".oooooo.","oooooooo","okooooko","oooooooo","okkkkkko",".oooooo.","........"],
- skull:[".kkkkkk.","kwwwwwwk","kwkwwkwk","kwkwwkwk","kwwwwwwk",".kwkkwk.",".kwwwwk.","..kkkk.."],
- gator:["........","gggggg..","gkgggggg","gggggggg","gwgwgwgg","gggggggg",".gwgwgwg","........"],
- film:["kkkkkkkk","kwkwkwkk","kkkkkkkk","kppppppk","kpcpppck","kkkkkkkk","kwkwkwkk","kkkkkkkk"]
-};
-function docWith(sym){
-  const rows=DOC.map(r=>r.split(""));
-  sym.forEach((r,y)=>[...r].forEach((ch,x)=>{ if(ch!=="."&&PAL[ch]) rows[6+y][4+x]=ch; }));
-  return rows.map(r=>r.join(""));
-}
-const BIG_PUMPKIN=[
-"......gg......",
-".......g......",
-"..oooooooooo..",
-".oooooooooooo.",
-"oookkooookkooo",
-"ooookoooookooo",
-"oooooookoooooo",
-"oooooooooooooo",
-"ookoooooooooko",
-"oookkkkkkkkooo",
-".oooykykykyoo.",
-"..oooooooooo..",
-"..............",
-".............."];
-
-/* ===================== CEMENTERIO ===================== */
-function drawGraveyard(){
-  const H=90, svg=$("#graveyard"); let o="";
-  const W=Math.max(240,Math.round(H*innerWidth/(innerHeight*.58))), f=W/240;
-  const R=(x,y,w,h,c)=>o+=`<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${c}"/>`;
-  const bmp=(rows,x0,y0,pal)=>rows.forEach((r,y)=>[...r].forEach((ch,x)=>{ if(pal[ch]) R(x0+x,y0+y,1.02,1.02,pal[ch]); }));
-  // luna
-  bmp(["..mmmm..",".mmmmmm.","mmmmmmmm","mmmmnmmm","mmmmmmmm","mmnmmmmm",".mmmmmm.","..mmmm.."],W-46,10,{m:"#FFF4C2",n:"#F2DE8C"});
-  // estrellas
-  [[20,10],[48,18],[90,6],[130,14],[166,5],[226,22],[70,26],[112,24]].forEach(([x,y])=>R(Math.round(x*f),y,1,1,"#FFFFFF"));
-  // colinas lejanas
-  for(let x=0;x<W;x+=3){ const h=Math.round(10+6*Math.sin(x/19)+4*Math.sin(x/7)); R(x,62-h,3,h+30,"#C9BEDD"); }
-  // suelo
-  R(0,66,W,H-66,"#B9AAD2"); R(0,66,W,1,"#A897C6");
-  for(let x=2;x<W;x+=7) R(x,67+(x%3),2,1,"#A897C6");
-  // reja
-  for(let x=0;x<W;x+=5){ R(x,52,1,14,"#7E7296"); R(x,51,1,1,"#7E7296"); }
-  R(0,55,W,1,"#7E7296"); R(0,61,W,1,"#7E7296");
-  // árbol seco
-  const T={k:"#5E5470"};
-  bmp(["......k.....k...",".k....k....k....","..k...k...k...k.","...k..k..k...k..","....k.kk.k..k...",".....kkkkkk.....","......kkk.......","......kkk.......","......kkk.......","......kkk.......","......kkk.......","......kkk.......","......kkk.......",".....kkkkk......","....kkkkkkk....."],Math.round(18*f),52,T);
-  // lápidas
-  const STONE={k:"#1A1320",w:"#EDE8F5",s:"#CFC6E0"};
-  const tomb=["..kkkkk..",".kwwwwwk.","kwwwwwwsk","kwwkwkwsk","kwwkkkwsk","kwwkwkwsk","kwwwwwwsk","kwwwwwwsk","kwwwwwwsk","kkkkkkkkk"];
-  const cross=["...kkk...","...kwk...",".kkkwkkk.",".kwwwwwk.",".kkkwkkk.","...kwk...","...kwk...","...kwk...","..kkkkk..","..kwwsk..","..kkkkk.."];
-  const slab=[".kkkkkkkk.","kwwwwwwwsk","kwkkkkkwsk","kwwwwwwwsk","kwkkkkwwsk","kwwwwwwwsk","kkkkkkkkkk"];
-  [[48,tomb],[66,cross],[86,slab],[112,tomb],[132,cross],[158,tomb],[176,slab],[214,cross],[230,tomb]].forEach(([x,b])=>bmp(b,Math.round(x*f),67-b.length+2,STONE));
-  // calabazas
-  const PUMP={g:"#5DB33A",o:"#F26B1D",k:"#1A1320"};
-  const pk=["..g..",".ooo.","okoko","ooooo",".ooo."];
-  [[60,64],[104,65],[150,64],[200,65]].forEach(([x,y])=>bmp(pk,Math.round(x*f),y,PUMP));
-  // fantasmita
-  bmp([".www.","wkwkw","wwwww","wwwww","w.w.w"],Math.round(124*f),40,{w:"#FFFFFF",k:"#1A1320"});
-  // murciélagos
-  const BAT=["k.....k","kk.k.kk",".kkkkk.","..k.k.."];
-  [[150,20],[168,30],[60,16]].forEach(([x,y])=>bmp(BAT,Math.round(x*f),y,{k:"#5E5470"}));
-  svg.setAttribute("viewBox",`0 0 ${W} ${H}`); svg.setAttribute("shape-rendering","crispEdges"); svg.innerHTML=o;
-}
-
 /* ===================== ARTE DIBUJADO ===================== */
-const INK="#1E1416",RED="#C8102E",RED2="#8E0B1F",CREAM="#FBF3E4",BONE="#E9D8B8",GOLD="#D9A441",MOSS="#4E8B4A";
+const INK="#1E1416",RED="#C8102E",CREAM="#FBF3E4",GOLD="#D9A441",MOSS="#4E8B4A";
 const ART={
  pumpkin:`<svg viewBox="0 0 120 120"><path d="M60 26c-4-10 2-16 9-18" fill="none" stroke="${MOSS}" stroke-width="5" stroke-linecap="round"/>
   <path d="M60 30c-30-6-48 14-48 40s20 38 48 38 48-12 48-38-18-46-48-40z" fill="#F07A2B" stroke="${INK}" stroke-width="4"/>
@@ -559,7 +467,6 @@ const NET={db:null,ok:false,code:null,seq:0,key:null,open_:false,players:{},arr:
   },
   kick(pid){ if(this.room) this.room.child("players/"+pid).remove(); },
   resetPlayers(){ if(this.room) this.room.child("players").remove(); },
-  move(pid){ const pl=this.players[pid]; if(!pl) return; this.room.child("players/"+pid+"/team").set(((pl.team??-1)+1)%4); },
   members(t){ return Object.entries(this.players).filter(([,pl])=>pl.team===t); },
   pushTeams(){ if(this.room) this.room.child("teams").set(S.teams.map((n,i)=>n||("Equipo "+(i+1)))); },
   set(state){ if(!this.room) return; this.room.child("state").set(Object.assign({at:firebase.database.ServerValue.TIMESTAMP},state)); },
@@ -762,7 +669,7 @@ paintNet();
 
 /* ===================== ARRANQUE ===================== */
 (function boot(){
-  const el=$("#boot"),bar=$("#bootBar"),msg=$("#bootMsg");
+  const el=$("#boot"),msg=$("#bootMsg");
   const done=()=>{ el.classList.add("gone"); setTimeout(()=>el.remove(),400); };
   let seen=false; try{ seen=sessionStorage.getItem("calabazaBoot")==="1"; sessionStorage.setItem("calabazaBoot","1"); }catch(e){}
   if(PLAYER||seen||matchMedia("(prefers-reduced-motion:reduce)").matches){ el.remove(); return; }
