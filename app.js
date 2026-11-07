@@ -326,7 +326,7 @@ function R2(body,foot){
   stopTimer();
   if(g.phase!=="question" && g.phase!=="reveal") NET.idle();
   if(g.phase==="intro"){
-    body.innerHTML=`<div class="center" style="padding-top:6vh"><p class="kicker">25 preguntas · 30 segundos cada una · más puntos entre más rápido</p>
+    body.innerHTML=`<div class="center" style="padding-top:6vh"><p class="kicker">${TRIVIA.length} preguntas · ${TRIVIA_SECS} segundos cada una · más puntos entre más rápido</p>
       <h2 class="big" style="font-size:clamp(56px,7vw,110px)">Trivia del Terror Mexicano</h2>
       <p class="q" style="margin:18px auto">Voten desde su celular: la respuesta del equipo es la opción más votada.</p></div>${score4(g.scores)}`;
     foot.innerHTML=`<span class="grow"></span><button class="btn ghost" id="tvReset">Reiniciar</button><button class="btn go" id="tvGo">${g.i>0?"Continuar en la pregunta "+(g.i+1):"Empezar"}</button>`;
@@ -352,17 +352,11 @@ function R2(body,foot){
     <div class="opts">${opts.map((o,k)=>`<div class="opt ${letters[k]} ${revealing?(k===ok?"ok":"dim"):""}"><span class="l">${letters[k]}</span><span>${esc(o)}</span></div>`).join("")}</div>
     <div class="answers ${revealing?"":"hide"}">${[0,1,2,3].map(t=>{
       const a=g.ans[t];
-      const res=revealing?(a&&a.c===ok?`✓ +${g.last[t]||0}`:"✗ 0"):(a?"Respondió":"Sin respuesta")+NET.vi(t);
+      const res=revealing?(a?letters[a.c]+" · ":"Sin respuesta · ")+(a&&a.c===ok?`✓ +${g.last[t]||0}`:"✗ 0"):(a?"Respondió":"Sin respuesta")+NET.vi(t);
       return `<div class="ans ${a?"got":""}" style="box-shadow:inset 0 8px 0 ${TC(t)}"><span class="teamchip" style="border:0;padding:6px 0 0">${esc(tname(t))}</span>
-        <div class="row">${letters.map((L,k)=>`<button data-t="${t}" data-k="${k}" class="${a&&a.c===k?"on":""}" ${revealing?"disabled":""}>${L}</button>`).join("")}</div>
         <span class="res">${res}</span></div>`; }).join("")}</div>`;
-  foot.innerHTML=`<span class="kicker">Las respuestas llegan de los celulares. Si alguno falla, márcala aquí.</span><span class="grow"></span>
+  foot.innerHTML=`<span class="kicker">Cada quien vota en su celular; la respuesta del equipo es la opción más votada.</span><span class="grow"></span>
     ${revealing?`<button class="btn go" id="tvBoard">Ver marcador</button>`:`<button class="btn go" id="tvRev">Revelar respuesta</button>`}`;
-  body.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{
-    const t=+b.dataset.t,k=+b.dataset.k; g.ans[t]={c:k,remain:g.remain}; save(); SFX.tick();
-    body.querySelectorAll(`[data-t="${t}"]`).forEach(x=>x.classList.toggle("on",+x.dataset.k===k));
-    b.closest(".ans").querySelector(".res").textContent="Respondió"; b.closest(".ans").classList.add("got");
-  });
   const rv=$("#tvRev",foot); if(rv) rv.onclick=()=>reveal(body,foot);
   const bd=$("#tvBoard",foot); if(bd) bd.onclick=()=>{ g.phase="board"; save(); R2(body,foot); };
   if(g.phase==="question"){
@@ -371,8 +365,8 @@ function R2(body,foot){
     TIMER=setInterval(()=>{
       g.remain=Math.max(0,(g.deadline-Date.now())/1000);
       const bar=$("#tvBar",body),sec=$("#tvSec",body);
-      if(bar){ bar.style.width=(g.remain/TRIVIA_SECS*100)+"%"; bar.classList.toggle("low",g.remain<=5); }
-      if(sec){ const s=Math.ceil(g.remain); if(sec.textContent!==s+" s"){ sec.textContent=s+" s"; if(s<=5&&s>0) SFX.tick(); } }
+      if(bar){ bar.style.width=(g.remain/TRIVIA_SECS*100)+"%"; bar.classList.toggle("low",g.remain<=3); }
+      if(sec){ const s=Math.ceil(g.remain); if(sec.textContent!==s+" s"){ sec.textContent=s+" s"; if(s<=3&&s>0) SFX.tick(); } }
       if(g.remain<=0){ stopTimer(); SFX.buzz(); NET.lock(); }
     },100);
   }
@@ -430,13 +424,11 @@ function R3(body,foot){
      ${shown?`<span class="stamp ${ans}">${ans==="F"?"FLORIDA":"TAMAULIPAS"}${place?" · "+esc(place):""}</span>`:""}</article>
    ${shown?`<p class="src">Fuente: ${esc(src)}</p>`:`<div style="height:44px"></div>`}
    <div class="answers vote ${shown?"":"hide"}">${[0,1,2,3].map(t=>`<div class="ans ${v[t]?"got":""}" style="box-shadow:inset 0 8px 0 ${TC(t)}"><span class="teamchip" style="border:0;padding:6px 0 0">${esc(tname(t))}</span>
-      <div class="row">${["F","T"].map(c=>`<button data-t="${t}" data-c="${c}" class="${v[t]===c?"on":""}" ${shown?"disabled":""}>${c==="F"?"Florida":"Tamaulipas"}</button>`).join("")}</div>
-      <span class="res">${shown?(v[t]===ans?"✓ +1":"✗ 0"):(v[t]?"Votó":"Sin voto")+NET.vi(t)}</span></div>`).join("")}</div>
+      <span class="res">${shown?(v[t]?(v[t]==="F"?"Florida":"Tamaulipas")+" · ":"Sin voto · ")+(v[t]===ans?"✓ +1":"✗ 0"):(v[t]?"Votó":"Sin voto")+NET.vi(t)}</span></div>`).join("")}</div>
    ${score4(g.scores)}`;
   foot.innerHTML=`<button class="btn" id="fPrev" ${g.i?"":"disabled"}>Anterior</button><span class="grow"></span>
     <button class="btn ghost" id="fReset">Reiniciar</button>
     ${shown?`<button class="btn go" id="fNext">${g.i<NOTICIAS.length-1?"Siguiente noticia":"Ver resultados"}</button>`:`<button class="btn go" id="fRev">Revelar</button>`}`;
-  body.querySelectorAll("[data-t]").forEach(b=>b.onclick=()=>{ v[+b.dataset.t]=b.dataset.c; SFX.tick(); save(); R3(body,foot); });
   const rv=$("#fRev",foot); if(rv) rv.onclick=()=>{ g.log[g.i]=true; [0,1,2,3].forEach(t=>{ if(v[t]===ans) g.scores[t]++; }); SFX.ding(); save(); NET.reveal(ans); R3(body,foot); };
   const nx=$("#fNext",foot); if(nx) nx.onclick=()=>{ g.i++; save(); R3(body,foot); };
   $("#fPrev",foot).onclick=()=>{ g.i=Math.max(0,g.i-1); save(); R3(body,foot); };
@@ -487,8 +479,7 @@ async function R4(body,foot){
    <div class="opts small" style="margin-top:14px">${titles.map((o,k)=>`<div class="opt ${letters[k]} ${shown?(k===okIdx?"ok":"dim"):""}"><span class="l">${letters[k]}</span><span>${esc(o)}</span></div>`).join("")}</div>
    ${shown?`<span class="reveal">${esc(title)} (${year})</span>`:""}
    <div class="answers ${shown?"":"hide"}">${[0,1,2,3].map(t=>`<div class="ans ${A[t]!==undefined?"got":""}" style="box-shadow:inset 0 8px 0 ${TC(t)}"><span class="teamchip" style="padding-top:4px">${esc(tname(t))}</span>
-      <div class="row">${letters.map((L,k)=>`<button data-t="${t}" data-k="${k}" class="${A[t]===k?"on":""}" ${shown?"disabled":""}>${L}</button>`).join("")}</div>
-      <span class="res">${shown?(h[t]?"✓ +1":"✗ 0"):(A[t]!==undefined?"Respondió":"Sin respuesta")+NET.vi(t)}</span></div>`).join("")}</div>
+      <span class="res">${shown?(A[t]!==undefined?letters[A[t]]+" · ":"Sin respuesta · ")+(h[t]?"✓ +1":"✗ 0"):(A[t]!==undefined?"Respondió":"Sin respuesta")+NET.vi(t)}</span></div>`).join("")}</div>
    ${score4(sc)}`;
   if(keepImg&&keepImg.getAttribute("src")===img) $("#scene img",body)?.replaceWith(keepImg);
   foot.innerHTML=`<button class="btn" id="pPrev" ${g.i?"":"disabled"}>Anterior</button>
@@ -505,8 +496,6 @@ async function R4(body,foot){
     R4(body,foot);
   };
   body.querySelectorAll("[data-j]").forEach(b=>b.onclick=()=>{ g.i=+b.dataset.j; save(); R4(body,foot); });
-  body.querySelectorAll(".ans [data-t]").forEach(b=>b.onclick=()=>{ const t=+b.dataset.t,k=+b.dataset.k; A[t]=k; SFX.tick(); save();
-    b.closest(".row").querySelectorAll("button").forEach(x=>x.classList.toggle("on",+x.dataset.k===k)); b.closest(".ans").querySelector(".res").textContent="Respondió"; b.closest(".ans").classList.add("got"); });
   const rv=$("#pRev",foot); if(rv) rv.onclick=()=>{ g.log[g.i]=true; [0,1,2,3].forEach(t=>{ h[t]=A[t]===okIdx; }); SFX.win(); save(); NET.reveal(okIdx); R4(body,foot); };
   const nx=$("#pNext",foot); if(nx) nx.onclick=()=>{ g.i++; save(); R4(body,foot); };
   $("#pPrev",foot).onclick=()=>{ g.i=Math.max(0,g.i-1); save(); R4(body,foot); };

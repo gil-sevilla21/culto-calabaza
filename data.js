@@ -53,7 +53,7 @@ const TRIVIA = [
  ["¿A cuántos años de prisión fue sentenciada “La Mataviejitas”?",["99","300","759"],2],
  ["Según la historia, ¿por qué Don Julián Santana empezó a colgar muñecas en su isla de Xochimilco?",["Para calmar el espíritu de una niña ahogada","Por una promesa a la Virgen","Para atraer turistas"],0]
 ];
-const TRIVIA_SECS=30;
+const TRIVIA_SECS=10;
 
 const NOTICIAS = [
  ["Durante una lluvia ligera, empezaron a caer peces pequeños del cielo en el patio de una escuela; Protección Civil lo confirmó.","T","Tampico","NPR"],

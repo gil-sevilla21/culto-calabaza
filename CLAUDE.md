@@ -67,9 +67,9 @@ Versión Halloween de *100 Mexicanos Dijeron*.
 
 ### 2.2 Dinámica 2 · Trivia del Terror Mexicano (carta II)
 
-- **Formato:** tipo Kahoot, **por equipos**, 25 preguntas de opción múltiple con 3 opciones y una sola correcta. 30 segundos por pregunta.
+- **Formato:** tipo Kahoot, **por equipos**, 25 preguntas de opción múltiple con 3 opciones y una sola correcta. **10 segundos por pregunta** (`TRIVIA_SECS`, bajó de 30 el 7-nov-2026; la barra se pone roja en los últimos 3).
 - **Tema final:** 100% mexicano: true crime, leyendas, folclore mexica, ovnis y misterios de México. Se quitaron las preguntas de cine (irán en la dinámica de películas) y las internacionales.
-- **Puntos:** respuesta correcta = `round(500 + 500 × segundosRestantes / 30)`, es decir, de 500 a 1000 según rapidez. Incorrecta o sin respuesta = 0.
+- **Puntos:** respuesta correcta = `round(500 + 500 × segundosRestantes / TRIVIA_SECS)`, es decir, de 500 a 1000 según rapidez. Incorrecta o sin respuesta = 0.
 - **Flujo:** pregunta → los equipos votan → "Revelar respuesta" → marcador → siguiente. Tras la pregunta 25, podio con top 3 de equipos; solo hay un equipo campeón. Empate en primer lugar: gana quien tenga más respuestas correctas.
 - **Juego limpio:** prohibido buscar en internet (el equipo descubierto pierde los puntos de esa pregunta).
 - **Pendiente:** varios datos son muy específicos y conviene verificarlos antes de la fiesta (la condena de 759 años, el rancho de Las Poquianchis, lo que ocupa hoy Lecumberri, etc.). Juan Gabriel: no se encontró fuente confiable sobre la crujía donde estuvo, por eso la pregunta es sobre los 18 meses en Lecumberri.
@@ -276,7 +276,7 @@ rooms/{CODE}/
 - **Cuadro de victoria en los podios:** al tocar "Ver podio" en Trivia, Florida o Tamaulipas y Películas aparece `victory()` con "¡Victoria para X!" y sus puntos, o "¡Empate en primer lugar!" en dorado con la regla de desempate (bandera `podCel`, sale una vez por clic).
 - **Podios:** la trivia desempata por más respuestas correctas; si sigue el empate, o en Florida o Tamaulipas y Películas, el podio anuncia el empate (piedra, papel o tijera entre capitanes).
 - **Privacidad en pantalla grande:** antes de revelar, solo se muestra "Respondió · n/m votos" por equipo, nunca la letra elegida (clases `.answers.hide` y `.ans.got`).
-- **Respaldo manual:** los botones A/B/C (o Florida/Tamaulipas) por equipo siguen en pantalla por si falla un celular.
+- **Sin respaldo manual (7-nov-2026):** se quitaron los botones A/B/C y Florida/Tamaulipas por equipo; todo se vota desde los celulares. Al revelar, cada equipo muestra su elección y resultado (por ejemplo "B · ✓ +870" o "Sin respuesta · ✗ 0").
 - `NET.kick(pid)` borra a un jugador; `NET.resetPlayers()` borra a todos; `NET.shuffle()` rebaraja a todos al azar en equipos equilibrados. `NET.assign()` es un respaldo que asigna equipo a quien no tenga.
 
 ### 5.5 Panel "Celulares" (`RN`)
