@@ -210,10 +210,10 @@ function R1(body,foot){
      <span class="pot">Bolsa: ${pot} × ${m} = ${pot*m}</span>
      <div class="strikes" aria-label="Strikes">${[0,1,2].map(i=>`<i class="${i<g.strikes[G][r]?"on":""}">X</i>`).join("")}</div>
      <span class="grow"></span>
-     <button class="btn" data-ctl="0">Control: ${esc(tname(pair[0]))}</button>
-     <button class="btn" data-ctl="1">Control: ${esc(tname(pair[1]))}</button>
+     ${aw[r]===null?[0,1].map(s=>`<button class="btn ${ctl===s?"go":""}" data-ctl="${s}" aria-pressed="${ctl===s}">Control: ${esc(tname(pair[s]))}</button>`).join(""):""}
    </div>
-   ${aw[r]!==null?`<div class="banner">Ronda para ${esc(tname(pair[aw[r]]))}: +${pot*m} puntos</div>`:""}
+   ${aw[r]!==null?`<div class="banner">Ronda para ${esc(tname(pair[aw[r]]))}${(g.robo||{})[G+"-"+r]?" (¡robo!)":""}: +${pot*m} puntos</div>`
+     :ctl!==null&&g.strikes[G][r]>=3?`<div class="banner" style="background:var(--tint0)">¡Tercer strike! ${esc(tname(pair[1-ctl]))} puede robar: da una sola respuesta. Si atina, revélala y se lleva toda la bolsa.</div>`:""}
    ${win!==null&&win!==undefined?`<div class="banner" style="background:var(--tint1)">Gana ${esc(tname(pair[win]))}${tied?" en el desempate":""}${G===2?" y es el CAMPEÓN del torneo":" y pasa a la Gran Final"}</div>`:""}
    ${tied&&(win===null||win===undefined)?`<div class="banner">¡Empate! Pregunta de desempate: cara a cara entre capitanes, gana quien dé la respuesta más alta.</div>
      <p class="q" style="max-width:none;font-size:clamp(24px,2.4vw,36px);margin:12px 0">${esc(DESEMPATE.q)}</p>
@@ -225,7 +225,10 @@ function R1(body,foot){
    <button class="btn" id="mX">Strike ✕</button>
    <button class="btn" id="mXu" ${g.strikes[G][r]?"":"disabled"}>Quitar strike</button>
    <button class="btn" id="mAll" title="Muestra las que nadie dijo; no suman puntos">Revelar las que faltan</button>
-   ${aw[r]===null?`<button class="btn go" data-aw="0">Puntos a ${esc(tname(pair[0]))}</button><button class="btn go" data-aw="1">Puntos a ${esc(tname(pair[1]))}</button>`:`<button class="btn" id="mUn">Deshacer puntos</button>`}
+   ${aw[r]!==null?`<button class="btn" id="mUn">Deshacer puntos</button>`
+     :ctl===null?`<span class="kicker">Marca quién tiene el control para dar los puntos</span>`
+     :g.strikes[G][r]>=3?`<button class="btn go" data-aw="${1-ctl}">¡${esc(tname(pair[1-ctl]))} roba la bolsa!</button><button class="btn" data-aw="${ctl}">Falló el robo: bolsa para ${esc(tname(pair[ctl]))}</button>`
+     :`<button class="btn go" data-aw="${ctl}">Bolsa para ${esc(tname(pair[ctl]))}</button>`}
    <button class="btn" id="mNext" ${r<4?"":"disabled"}>Siguiente ronda</button>
    <button class="btn ghost" id="mReset">Reiniciar</button>`;
   const rr=()=>{save();R1(body,foot);};
@@ -240,7 +243,7 @@ function R1(body,foot){
   $("#mX",foot).onclick=()=>{ g.strikes[G][r]=Math.min(3,g.strikes[G][r]+1); SFX.buzz(); bigX(); rr(); };
   $("#mXu",foot).onclick=()=>{ g.strikes[G][r]=Math.max(0,g.strikes[G][r]-1); rr(); };
   $("#mAll",foot).onclick=()=>{ rev.forEach((v,k)=>{ if(!v) rev[k]="c"; }); SFX.ding(); rr(); };
-  foot.querySelectorAll("[data-aw]").forEach(b=>b.onclick=()=>{ aw[r]=+b.dataset.aw; g.tie[G]=null; SFX.win(); rr(); });
+  foot.querySelectorAll("[data-aw]").forEach(b=>b.onclick=()=>{ aw[r]=+b.dataset.aw; (g.robo ||= {})[G+"-"+r]=aw[r]!==ctl; g.tie[G]=null; SFX.win(); rr(); });
   const un=$("#mUn",foot); if(un) un.onclick=()=>{ aw[r]=null; g.tie[G]=null; rr(); };
   $("#mNext",foot).onclick=()=>{ g.round[G]=Math.min(4,r+1); g.ctl[G]=null; rr(); };
   $("#mReset",foot).onclick=()=>confirmReset(gm.name,()=>{ g.rev[G]=[];g.strikes[G]=[0,0,0,0,0];g.award[G]=[null,null,null,null,null];g.round[G]=0;g.ctl[G]=null;g.tie[G]=null;g.tb[G]=null;R1(body,foot); });

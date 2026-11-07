@@ -59,6 +59,7 @@ Versión Halloween de *100 Mexicanos Dijeron*.
 - **Respuestas del cierre:** "Revelar las que faltan" las muestra en color hueso y **no suman** (en `rev`, `true` = adivinada y `"c"` = revelada al cierre). Sólo las adivinadas cuentan para la bolsa.
 - **Desempate:** si el partido acaba empatado, aparece `DESEMPATE` (data.js): "Algo que llevarías para pasar la noche en un cementerio" (Linterna 34 · Cobija 22 · Comida 18 · Celular 14 · Un amigo 12). No suma puntos; el anfitrión marca quién ganó (`g1.tie`).
 - No se puede poner al mismo equipo en los dos lados: elegir al rival intercambia los lados.
+- **Control = puntos (7-nov-2026):** ya no hay "Puntos a cada equipo". El anfitrión marca "Control: X" y aparece un solo botón "Bolsa para X". Al tercer strike aparece el aviso de robo y dos botones: "¡Y roba la bolsa!" o "Falló el robo: bolsa para X". Si el rival atina, el anfitrión revela esa respuesta (suma a la bolsa) antes de darle los puntos. `g1.robo["G-r"]` marca las rondas robadas. Sin celulares: esta dinámica la maneja sólo el anfitrión.
 - Se descartó la "Ronda Relámpago" y la sección de materiales y pendientes.
 
 ### 2.2 Dinámica 2 · Trivia del Terror Mexicano (carta II)
