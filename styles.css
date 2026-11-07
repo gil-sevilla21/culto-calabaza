@@ -242,3 +242,5 @@ body.player > *:not(#player){display:none!important}
   .slot{grid-template-columns:44px 1fr 70px}
   .menubar .clock{display:none}
 }
+/* 100 Monstruos: la tarjeta del equipo se toca para darle el control */
+.m-team.clickable:hover{outline:3px dashed var(--blood);outline-offset:3px}

@@ -184,69 +184,92 @@ function bigX(){
   d.innerHTML=`<svg viewBox="0 0 200 200"><path d="M40 34c40 36 84 92 124 136" stroke="${INK}" stroke-width="38" stroke-linecap="round" fill="none"/><path d="M164 30c-40 44-88 90-126 140" stroke="${INK}" stroke-width="38" stroke-linecap="round" fill="none"/><path d="M40 34c40 36 84 92 124 136" stroke="${RED}" stroke-width="26" stroke-linecap="round" fill="none"/><path d="M164 30c-40 44-88 90-126 140" stroke="${RED}" stroke-width="26" stroke-linecap="round" fill="none"/></svg>`;
   document.body.appendChild(d); setTimeout(()=>d.remove(),800);
 }
+/* Control y puntos automáticos (7-nov-2026):
+   - g.rc["G-r"] = lado (0|1) que ganó el control de la ronda; se elige tocando la tarjeta del equipo.
+   - Sin control no se abre ninguna respuesta. Cada respuesta abierta suma a la bolsa del equipo con control.
+   - Al 3er strike el control pasa al rival para robar: si abre una respuesta (g.st["G-r"] = esa respuesta) se lleva toda la bolsa;
+     un strike más = robo fallido y la bolsa se queda con quien tenía el control.
+   - Ronda cerrada (5 adivinadas, robo resuelto o "Revelar las que faltan"): lo que se abra se ve pero no suma (rev[k] = "c"). */
+let m1warn=false;
 function R1(body,foot){
   const g=S.g1, G=g.game, gm=MONSTRUOS[G], r=g.round[G], rd=gm.rounds[r], m=MULT[r];
   const rev=(g.rev[G][r] ||= [false,false,false,false,false]);
-  const pair=g.pair[G], aw=g.award[G];
-  /* rev[k]: true = la adivinaron (suma a la bolsa), "c" = se reveló al cierre (no suma) */
-  const sc=[0,1].map(s=>aw.reduce((t,a,ri)=>{ if(a===s){ const rv=g.rev[G][ri]||[]; t+=MONSTRUOS[G].rounds[ri].a.reduce((x,[,p],k)=>x+(rv[k]===true?p:0),0)*MULT[ri]; } return t; },0));
-  const pot=rd.a.reduce((x,[,p],k)=>x+(rev[k]===true?p:0),0);
-  const ctl=g.ctl[G];
-  const allDone=aw.every(a=>a!==null);
-  g.tie ||= [null,null,null]; g.tb ||= {};
+  const pair=g.pair[G];
+  g.rc ||= {}; g.st ||= {}; g.tie ||= [null,null,null]; g.tb ||= {};
+  const K=i=>G+"-"+i;
+  const info=i=>{
+    const rv=g.rev[G][i]||[], s=g.strikes[G][i]||0, c=g.rc[K(i)], st=g.st[K(i)];
+    const guessed=rv.filter(x=>x===true).length;
+    const closed=st!==undefined||s>=4||rv.some(x=>x==="c")||guessed===5;
+    const pot=MONSTRUOS[G].rounds[i].a.reduce((x,[,p],k)=>x+(rv[k]===true?p:0),0);
+    const win=c===undefined?null:st!==undefined?1-c:c;
+    const cur=c===undefined?null:(!closed&&s>=3)?1-c:c;
+    return {s,c,st,closed,pot,win,cur};
+  };
+  const I=info(r);
+  const sc=[0,1].map(side=>gm.rounds.reduce((t,_,i)=>{ const x=info(i); return t+(x.win===side?x.pot*MULT[i]:0); },0));
+  const allDone=gm.rounds.every((_,i)=>info(i).closed);
   const tb=(g.tb[G] ||= [false,false,false,false,false]);
   const tied=allDone&&sc[0]===sc[1];
-  const win=!allDone?null:!tied?(sc[0]>sc[1]?0:1):g.tie[G];
+  const mw=!allDone?null:!tied?(sc[0]>sc[1]?0:1):g.tie[G];
+  const warn=m1warn; m1warn=false;
+  const steal=!I.closed&&I.c!==undefined&&I.s>=3;
   const teamSel=(s)=>`<select data-s="${s}" aria-label="Equipo ${s?"derecha":"izquierda"}">${[0,1,2,3].map(i=>`<option value="${i}" ${pair[s]===i?"selected":""}>${esc(tname(i))}</option>`).join("")}</select>`;
+  const note=s=>I.cur===s?(steal?"Intenta robar":"Tiene el control"):(I.c===undefined&&!I.closed?"Toca aquí para darle el control":"&nbsp;");
+  const card=s=>`<div class="m-team ${s?"right":""} ${I.cur===s?"ctl":""} ${I.c===undefined||(!I.closed&&!steal)?"clickable":""}" data-side="${s}" style="box-shadow:inset ${s?"-":""}10px 0 0 ${TC(pair[s])}">${teamSel(s)}<span class="pts">${sc[s]}</span><span class="kicker">${note(s)}</span></div>`;
   body.innerHTML=`
    <div class="m-top">
-     <div class="m-team ${ctl===0?"ctl":""}" style="border-color:var(--ink);box-shadow:inset 10px 0 0 ${TC(pair[0])}">${teamSel(0)}<span class="pts">${sc[0]}</span><span class="kicker">${ctl===0?"Tiene el control":"&nbsp;"}</span></div>
-     <div class="m-mid"><span class="kicker">${esc(gm.name)}</span><div class="rounds">${gm.rounds.map((_,i)=>`<button data-r="${i}" class="${i===r?"on":""} ${aw[i]!==null?"done":""}">R${i+1} x${MULT[i]}</button>`).join("")}</div><span class="mult">x${m}</span></div>
-     <div class="m-team right ${ctl===1?"ctl":""}" style="box-shadow:inset -10px 0 0 ${TC(pair[1])}">${teamSel(1)}<span class="pts">${sc[1]}</span><span class="kicker">${ctl===1?"Tiene el control":"&nbsp;"}</span></div>
+     ${card(0)}
+     <div class="m-mid"><span class="kicker">${esc(gm.name)}</span><div class="rounds">${gm.rounds.map((_,i)=>`<button data-r="${i}" class="${i===r?"on":""} ${info(i).closed?"done":""}">R${i+1} x${MULT[i]}</button>`).join("")}</div><span class="mult">x${m}</span></div>
+     ${card(1)}
    </div>
    <p class="q" style="max-width:none;font-size:clamp(28px,3vw,46px);margin:12px 0">${esc(rd.q)}</p>
    <div class="board">${rd.a.map(([t,p],k)=>`<button class="slot ${rev[k]?"":"hid"} ${rev[k]==="c"?"cl":""}" data-k="${k}" aria-label="Respuesta ${k+1}${rev[k]?": "+esc(t):", oculta"}"><span class="n">${k+1}</span><span class="a">${esc(t)}</span><span class="p">${p}</span></button>`).join("")}</div>
    <div class="m-ctrl">
-     <span class="pot">Bolsa: ${pot} × ${m} = ${pot*m}</span>
-     <div class="strikes" aria-label="Strikes">${[0,1,2].map(i=>`<i class="${i<g.strikes[G][r]?"on":""}">X</i>`).join("")}</div>
-     <span class="grow"></span>
-     ${aw[r]===null?[0,1].map(s=>`<button class="btn ${ctl===s?"go":""}" data-ctl="${s}" aria-pressed="${ctl===s}">Control: ${esc(tname(pair[s]))}</button>`).join(""):""}
+     <span class="pot">Bolsa: ${I.pot} × ${m} = ${I.pot*m}${I.win!==null?" · "+esc(tname(pair[I.win])):""}</span>
+     <div class="strikes" aria-label="Strikes">${[0,1,2].map(i=>`<i class="${i<I.s?"on":""}">X</i>`).join("")}</div>
    </div>
-   ${aw[r]!==null?`<div class="banner">Ronda para ${esc(tname(pair[aw[r]]))}${(g.robo||{})[G+"-"+r]?" (¡robo!)":""}: +${pot*m} puntos</div>`
-     :ctl!==null&&g.strikes[G][r]>=3?`<div class="banner" style="background:var(--tint0)">¡Tercer strike! ${esc(tname(pair[1-ctl]))} puede robar: da una sola respuesta. Si atina, revélala y se lleva toda la bolsa.</div>`:""}
-   ${win!==null&&win!==undefined?`<div class="banner" style="background:var(--tint1)">Gana ${esc(tname(pair[win]))}${tied?" en el desempate":""}${G===2?" y es el CAMPEÓN del torneo":" y pasa a la Gran Final"}</div>`:""}
-   ${tied&&(win===null||win===undefined)?`<div class="banner">¡Empate! Pregunta de desempate: cara a cara entre capitanes, gana quien dé la respuesta más alta.</div>
+   ${warn?`<div class="banner" style="background:var(--tint0)">Primero toca la tarjeta del equipo que tiene el control.</div>`:""}
+   ${!I.closed&&I.c===undefined?`<div class="banner">Toca la tarjeta del equipo que ganó el cara a cara para darle el control.</div>`:""}
+   ${steal?`<div class="banner" style="background:var(--tint0)">¡Tercer strike! El control pasa a ${esc(tname(pair[1-I.c]))}: una sola oportunidad para robar. Si atina, abre esa respuesta y se lleva toda la bolsa. Si falla, marca strike y la bolsa es de ${esc(tname(pair[I.c]))}.</div>`:""}
+   ${I.closed&&I.win!==null&&I.pot>0?`<div class="banner">Ronda para ${esc(tname(pair[I.win]))}${I.st!==undefined?" (¡robo!)":I.s>=4?" (falló el robo)":""}: +${I.pot*m} puntos</div>`:""}
+   ${mw!==null&&mw!==undefined?`<div class="banner" style="background:var(--tint1)">Gana ${esc(tname(pair[mw]))}${tied?" en el desempate":""}${G===2?" y es el CAMPEÓN del torneo":" y pasa a la Gran Final"}</div>`:""}
+   ${tied&&(mw===null||mw===undefined)?`<div class="banner">¡Empate! Pregunta de desempate: cara a cara entre capitanes, gana quien dé la respuesta más alta.</div>
      <p class="q" style="max-width:none;font-size:clamp(24px,2.4vw,36px);margin:12px 0">${esc(DESEMPATE.q)}</p>
      <div class="board">${DESEMPATE.a.map(([t,p],k)=>`<button class="slot ${tb[k]?"":"hid"}" data-tb="${k}" aria-label="Desempate ${k+1}${tb[k]?": "+esc(t):", oculta"}"><span class="n">${k+1}</span><span class="a">${esc(t)}</span><span class="p">${p}</span></button>`).join("")}</div>
      <div class="m-ctrl"><span class="grow"></span><button class="btn go" data-tw="0">Gana el desempate: ${esc(tname(pair[0]))}</button><button class="btn go" data-tw="1">Gana el desempate: ${esc(tname(pair[1]))}</button></div>`:""}`;
   foot.innerHTML=`
    <div class="rounds">${MONSTRUOS.map((x,i)=>`<button data-g="${i}" class="${i===G?"on":""}">${esc(x.name)}</button>`).join("")}</div>
    <span class="grow"></span>
-   <button class="btn" id="mX">Strike ✕</button>
-   <button class="btn" id="mXu" ${g.strikes[G][r]?"":"disabled"}>Quitar strike</button>
-   <button class="btn" id="mAll" title="Muestra las que nadie dijo; no suman puntos">Revelar las que faltan</button>
-   ${aw[r]!==null?`<button class="btn" id="mUn">Deshacer puntos</button>`
-     :ctl===null?`<span class="kicker">Marca quién tiene el control para dar los puntos</span>`
-     :g.strikes[G][r]>=3?`<button class="btn go" data-aw="${1-ctl}">¡${esc(tname(pair[1-ctl]))} roba la bolsa!</button><button class="btn" data-aw="${ctl}">Falló el robo: bolsa para ${esc(tname(pair[ctl]))}</button>`
-     :`<button class="btn go" data-aw="${ctl}">Bolsa para ${esc(tname(pair[ctl]))}</button>`}
+   <button class="btn" id="mX" ${I.closed?"disabled":""}>Strike ✕</button>
+   <button class="btn" id="mXu" ${I.s?"":"disabled"}>Quitar strike</button>
+   <button class="btn" id="mAll" title="Muestra las que nadie dijo; no suman puntos" ${rev.every(Boolean)?"disabled":""}>Revelar las que faltan</button>
    <button class="btn" id="mNext" ${r<4?"":"disabled"}>Siguiente ronda</button>
    <button class="btn ghost" id="mReset">Reiniciar</button>`;
   const rr=()=>{save();R1(body,foot);};
-  body.querySelectorAll(".slot[data-k]").forEach(b=>b.onclick=()=>{ const k=+b.dataset.k; rev[k]=rev[k]!==true; if(rev[k]) SFX.ding(); rr(); if(rev[k]) body.querySelector(`.slot[data-k="${k}"]`)?.classList.add("rev"); });
+  body.querySelectorAll(".m-team[data-side]").forEach(el=>el.onclick=e=>{
+    if(e.target.closest("select")) return;
+    const x=info(r); if(x.closed&&x.c!==undefined) return; if(!x.closed&&x.c!==undefined&&x.s>=3) return;
+    g.rc[K(r)]=+el.dataset.side; SFX.tick(); rr(); });
+  body.querySelectorAll(".slot[data-k]").forEach(b=>b.onclick=()=>{
+    const k=+b.dataset.k, x=info(r);
+    if(x.closed){ if(rev[k]===true){ rev[k]=false; if(g.st[K(r)]===k) delete g.st[K(r)]; } else rev[k]=rev[k]?false:"c"; }
+    else if(x.c===undefined){ m1warn=true; SFX.buzz(); rr(); return; }
+    else if(rev[k]===true) rev[k]=false;
+    else { rev[k]=true; if(x.s>=3){ g.st[K(r)]=k; SFX.win(); } }
+    if(rev[k]) SFX.ding(); rr(); if(rev[k]) body.querySelector(`.slot[data-k="${k}"]`)?.classList.add("rev"); });
   body.querySelectorAll(".slot[data-tb]").forEach(b=>b.onclick=()=>{ const k=+b.dataset.tb; tb[k]=!tb[k]; if(tb[k]) SFX.ding(); rr(); });
   body.querySelectorAll("[data-tw]").forEach(b=>b.onclick=()=>{ g.tie[G]=+b.dataset.tw; SFX.win(); rr(); });
   /* el mismo equipo no puede estar en los dos lados: si eliges al rival, se intercambian */
   body.querySelectorAll("select").forEach(s=>s.onchange=()=>{ const side=+s.dataset.s, v=+s.value; if(pair[1-side]===v) pair[1-side]=pair[side]; pair[side]=v; rr(); });
   body.querySelectorAll("[data-r]").forEach(b=>b.onclick=()=>{ g.round[G]=+b.dataset.r; rr(); });
-  body.querySelectorAll("[data-ctl]").forEach(b=>b.onclick=()=>{ g.ctl[G]=+b.dataset.ctl; rr(); });
   foot.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ g.game=+b.dataset.g; rr(); });
-  $("#mX",foot).onclick=()=>{ g.strikes[G][r]=Math.min(3,g.strikes[G][r]+1); SFX.buzz(); bigX(); rr(); };
-  $("#mXu",foot).onclick=()=>{ g.strikes[G][r]=Math.max(0,g.strikes[G][r]-1); rr(); };
+  $("#mX",foot).onclick=()=>{ if(info(r).c===undefined){ m1warn=true; SFX.buzz(); rr(); return; } g.strikes[G][r]=Math.min(4,I.s+1); SFX.buzz(); bigX(); rr(); };
+  $("#mXu",foot).onclick=()=>{ const s=Math.max(0,I.s-1); g.strikes[G][r]=s; const st=g.st[K(r)]; if(s<3&&st!==undefined){ rev[st]=false; delete g.st[K(r)]; } rr(); };
   $("#mAll",foot).onclick=()=>{ rev.forEach((v,k)=>{ if(!v) rev[k]="c"; }); SFX.ding(); rr(); };
-  foot.querySelectorAll("[data-aw]").forEach(b=>b.onclick=()=>{ aw[r]=+b.dataset.aw; (g.robo ||= {})[G+"-"+r]=aw[r]!==ctl; g.tie[G]=null; SFX.win(); rr(); });
-  const un=$("#mUn",foot); if(un) un.onclick=()=>{ aw[r]=null; g.tie[G]=null; rr(); };
-  $("#mNext",foot).onclick=()=>{ g.round[G]=Math.min(4,r+1); g.ctl[G]=null; rr(); };
-  $("#mReset",foot).onclick=()=>confirmReset(gm.name,()=>{ g.rev[G]=[];g.strikes[G]=[0,0,0,0,0];g.award[G]=[null,null,null,null,null];g.round[G]=0;g.ctl[G]=null;g.tie[G]=null;g.tb[G]=null;R1(body,foot); });
+  $("#mNext",foot).onclick=()=>{ g.round[G]=Math.min(4,r+1); rr(); };
+  $("#mReset",foot).onclick=()=>confirmReset(gm.name,()=>{ g.rev[G]=[];g.strikes[G]=[0,0,0,0,0];g.round[G]=0;g.tie[G]=null;g.tb[G]=null;
+    Object.keys(g.rc).concat(Object.keys(g.st)).forEach(k=>{ if(k.startsWith(G+"-")){ delete g.rc[k]; delete g.st[k]; } }); R1(body,foot); });
 }
 
 /* ===================== 2 · TRIVIA ===================== */
