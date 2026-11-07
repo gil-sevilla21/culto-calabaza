@@ -231,7 +231,7 @@ function R1(body,foot){
    </div>
    ${warn?`<div class="banner" style="background:var(--tint0)">Primero toca la tarjeta del equipo que tiene el control.</div>`:""}
    ${!I.closed&&I.c===undefined?`<div class="banner">Toca la tarjeta del equipo que ganó el cara a cara para darle el control.</div>`:""}
-   ${steal?`<div class="banner" style="background:var(--tint0)">¡Tercer strike! El control pasa a ${esc(tname(pair[1-I.c]))}: una sola oportunidad para robar. Si atina, abre esa respuesta y se lleva toda la bolsa. Si falla, marca strike y la bolsa es de ${esc(tname(pair[I.c]))}.</div>`:""}
+   ${steal?`<div class="banner" style="background:var(--tint0)">¡Tercer strike! El control pasa a ${esc(tname(pair[1-I.c]))}: una sola oportunidad para robar. Si atina, abre esa respuesta y se lleva toda la bolsa. Si falla, toca "Falló el robo" y la bolsa es de ${esc(tname(pair[I.c]))}.</div>`:""}
    ${I.closed&&I.win!==null&&I.pot>0?`<div class="banner">Ronda para ${esc(tname(pair[I.win]))}${I.st!==undefined?" (¡robo!)":I.s>=4?" (falló el robo)":""}: +${I.pot*m} puntos</div>`:""}
    ${mw!==null&&mw!==undefined?`<div class="banner" style="background:var(--tint1)">Gana ${esc(tname(pair[mw]))}${tied?" en el desempate":""}${G===2?" y es el CAMPEÓN del torneo":" y pasa a la Gran Final"}</div>`:""}
    ${tied&&(mw===null||mw===undefined)?`<div class="banner">¡Empate! Pregunta de desempate: cara a cara entre capitanes, gana quien dé la respuesta más alta.</div>
@@ -243,6 +243,7 @@ function R1(body,foot){
    <span class="grow"></span>
    <button class="btn" id="mX" ${I.closed?"disabled":""}>Strike ✕</button>
    <button class="btn" id="mXu" ${I.s?"":"disabled"}>Quitar strike</button>
+   ${steal?`<button class="btn go" id="mFail">Falló el robo</button>`:""}
    <button class="btn" id="mAll" title="Muestra las que nadie dijo; no suman puntos" ${rev.every(Boolean)?"disabled":""}>Revelar las que faltan</button>
    <button class="btn" id="mNext" ${r<4?"":"disabled"}>Siguiente ronda</button>
    <button class="btn ghost" id="mReset">Reiniciar</button>`;
@@ -266,6 +267,8 @@ function R1(body,foot){
   foot.querySelectorAll("[data-g]").forEach(b=>b.onclick=()=>{ g.game=+b.dataset.g; rr(); });
   $("#mX",foot).onclick=()=>{ if(info(r).c===undefined){ m1warn=true; SFX.buzz(); rr(); return; } g.strikes[G][r]=Math.min(4,I.s+1); SFX.buzz(); bigX(); rr(); };
   $("#mXu",foot).onclick=()=>{ const s=Math.max(0,I.s-1); g.strikes[G][r]=s; const st=g.st[K(r)]; if(s<3&&st!==undefined){ rev[st]=false; delete g.st[K(r)]; } rr(); };
+  /* "Falló el robo" = el strike extra: la bolsa se queda con quien tenía el control */
+  const fl=$("#mFail",foot); if(fl) fl.onclick=()=>{ g.strikes[G][r]=4; SFX.buzz(); bigX(); rr(); };
   $("#mAll",foot).onclick=()=>{ rev.forEach((v,k)=>{ if(!v) rev[k]="c"; }); SFX.ding(); rr(); };
   $("#mNext",foot).onclick=()=>{ g.round[G]=Math.min(4,r+1); rr(); };
   $("#mReset",foot).onclick=()=>confirmReset(gm.name,()=>{ g.rev[G]=[];g.strikes[G]=[0,0,0,0,0];g.round[G]=0;g.tie[G]=null;g.tb[G]=null;
